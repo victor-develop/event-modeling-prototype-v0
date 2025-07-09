@@ -1,19 +1,27 @@
-import React, { memo, useCallback, useState, useRef, useEffect } from 'react'; // Import useState, useRef, useEffect
+import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { nanoid } from 'nanoid';
 
 interface SwimlaneNodeProps {
   id: string;
   data: { label: string };
-  style?: React.CSSProperties;
+  // Removed style?: React.CSSProperties; as it's not directly used in JSX
+  // New props for dispatching events
+  dispatchAddBlock: (blockData: any) => void;
+  dispatchUpdateNodeLabel: (nodeId: string, label: string) => void;
 }
 
-const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
-  const { setNodes, getNodes } = useReactFlow();
-  const [isEditing, setIsEditing] = useState(false); // State for edit mode
-  const inputRef = useRef<HTMLInputElement>(null); // Ref for input focus
+const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
+  id,
+  data,
+  // Removed style from destructuring
+  dispatchAddBlock,
+  dispatchUpdateNodeLabel,
+}) => {
+  const { getNodes } = useReactFlow();
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus the input when entering edit mode
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -21,21 +29,8 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
   }, [isEditing]);
 
   const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === id) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              label: evt.target.value,
-            },
-          };
-        }
-        return node;
-      }),
-    );
-  }, [id, setNodes]);
+    dispatchUpdateNodeLabel(id, evt.target.value);
+  }, [id, dispatchUpdateNodeLabel]);
 
   const onAddBlock = useCallback(() => {
     const parentNode = getNodes().find((node) => node.id === id);
@@ -47,15 +42,19 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
     const blockHeight = 50;
     const blockWidth = 100;
     const blockPadding = 20;
-    const topOffsetForBlocks = 80; // Increased space for label and button
+    const topOffsetForBlocks = 80;
 
     if (childNodes.length > 0) {
       const rightmostChild = childNodes.reduce((prev, current) => {
-        return (prev.position.x + (prev.style?.width || 0)) > (current.position.x + (current.style?.width || 0))
+        // Fix: Parse width to number before addition
+        const prevWidth = parseFloat(prev.style?.width as string || '0') || 0;
+        const currentWidth = parseFloat(current.style?.width as string || '0') || 0;
+        return (prev.position.x + prevWidth) > (current.position.x + currentWidth)
           ? prev
           : current;
       });
-      newX = rightmostChild.position.x + (rightmostChild.style?.width || blockWidth) + blockPadding;
+      // Fix: Parse width to number before addition
+      newX = rightmostChild.position.x + (parseFloat(rightmostChild.style?.width as string || '0') || blockWidth) + blockPadding;
     }
 
     const newBlock = {
@@ -68,30 +67,9 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
       style: { width: blockWidth, height: blockHeight, border: '1px solid #555', backgroundColor: '#fff' },
     };
 
-    const currentSwimlaneWidth = parentNode.style?.width || 800;
-    const potentialRightEdge = newX + blockWidth + blockPadding;
-
-    let updatedSwimlaneWidth = currentSwimlaneWidth;
-    if (potentialRightEdge > currentSwimlaneWidth) {
-      updatedSwimlaneWidth = potentialRightEdge;
-    }
-
-    setNodes((nds) => {
-      const updatedNodes = nds.map((node) => {
-        if (node.id === id) {
-          return {
-            ...node,
-            style: {
-              ...node.style,
-              width: updatedSwimlaneWidth,
-            },
-          };
-        }
-        return node;
-      });
-      return updatedNodes.concat(newBlock);
-    });
-  }, [id, setNodes, getNodes]);
+    // The swimlane width update logic is now handled in the appReducer (ADD_BLOCK case)
+    dispatchAddBlock(newBlock);
+  }, [id, getNodes, dispatchAddBlock]);
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);

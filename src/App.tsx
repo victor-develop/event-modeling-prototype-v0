@@ -1,94 +1,249 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useReducer } from 'react';
 import {
   ReactFlow,
   addEdge,
   MiniMap,
   Controls,
   Background,
-  useNodesState,
   useEdgesState,
-  applyNodeChanges, // Import applyNodeChanges
+  type Edge, // Fix: Import Edge as type
 } from '@xyflow/react';
 import { nanoid } from 'nanoid';
 
 import '@xyflow/react/dist/style.css';
 
-import {
-  nodes as initialNodes,
-  edges as initialEdges,
-} from './initial-elements';
-
-import AnnotationNode from './AnnotationNode';
-import ToolbarNode from './ToolbarNode';
-import ResizerNode from './ResizerNode';
-import CircleNode from './CircleNode';
-import TextInputNode from './TextInputNode';
-import ButtonEdge from './ButtonEdge';
 import Topbar from './components/Topbar';
 import SwimlaneNode from './components/SwimlaneNode';
-import BlockNode from './components/BlockNode'; // Import BlockNode
+import BlockNode from './components/BlockNode';
+import HistoryPanel from './components/HistoryPanel';
+import ButtonEdge from './ButtonEdge'; // Re-import ButtonEdge
 
-const nodeTypes = {
-  annotation: AnnotationNode,
-  tools: ToolbarNode,
-  resizer: ResizerNode,
-  circle: CircleNode,
-  textinput: TextInputNode,
-  swimlane: SwimlaneNode,
-  block: BlockNode, // Register BlockNode
+// --- Event Sourcing Setup ---
+
+type EventType =
+  | { type: 'ADD_SWIMLANE'; payload: any }
+  | { type: 'ADD_BLOCK'; payload: any }
+  | { type: 'MOVE_NODE'; payload: { nodeId: string; position: { x: number; y: number } } }
+  | { type: 'UPDATE_NODE_LABEL'; payload: { nodeId: string; label: string } }
+  | { type: 'TIME_TRAVEL'; payload: { index: number } };
+
+interface AppState {
+  nodes: any[];
+  edges: any[];
+  events: EventType[];
+  currentEventIndex: number;
+}
+
+const initialState: AppState = {
+  nodes: [],
+  edges: [],
+  events: [],
+  currentEventIndex: -1,
 };
 
-const edgeTypes = {
-  button: ButtonEdge,
-};
+const applyEvents = (events: EventType[], targetIndex: number): { nodes: any[]; edges: any[] } => {
+  let tempNodes: any[] = [];
+  let tempEdges: any[] = [];
 
-const nodeClassName = (node) => node.type;
-
-const OverviewFlow = () => {
-  const [nodes, setNodes] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    [],
-  );
-
-  // Custom onNodesChange to limit horizontal dragging for swimlanes
-  const onNodesChange = useCallback(
-    (changes) => {
-      setNodes((nds) => {
-        const updatedNodes = applyNodeChanges(changes, nds);
-        return updatedNodes.map((node) => {
-          if (node.type === 'swimlane' && node.position) {
-            // If the node is a swimlane and its position changed,
-            // reset its x position to its original x (or a fixed value)
-            // For simplicity, let's assume initial x for swimlanes is 50
+  for (let i = 0; i <= targetIndex; i++) {
+    const event = events[i];
+    switch (event.type) {
+      case 'ADD_SWIMLANE':
+        tempNodes = tempNodes.concat(event.payload);
+        break;
+      case 'ADD_BLOCK':
+        tempNodes = tempNodes.concat(event.payload);
+        tempNodes = tempNodes.map((node) => {
+          if (node.id === event.payload.parentId) {
+            const currentSwimlaneWidth = node.style?.width || 800;
+            const potentialRightEdge = event.payload.position.x + (event.payload.style?.width || 100) + 20;
+            if (potentialRightEdge > currentSwimlaneWidth) {
+              return {
+                ...node,
+                style: {
+                  ...node.style,
+                  width: potentialRightEdge,
+                },
+              };
+            }
+          }
+          return node;
+        });
+        break;
+      case 'MOVE_NODE':
+        tempNodes = tempNodes.map((node) =>
+          node.id === event.payload.nodeId
+            ? { ...node, position: event.payload.position }
+            : node,
+        );
+        tempNodes = tempNodes.map((node) => {
+          if (node.type === 'swimlane' && node.id === event.payload.nodeId) {
             return {
               ...node,
               position: {
-                x: 50, // Keep x fixed
-                y: node.position.y,
+                x: 50,
+                y: event.payload.position.y,
               },
             };
           }
           return node;
         });
+        break;
+      case 'UPDATE_NODE_LABEL':
+        tempNodes = tempNodes.map((node) =>
+          node.id === event.payload.nodeId
+            ? { ...node, data: { ...node.data, label: event.payload.label } }
+            : node,
+        );
+        break;
+    }
+  }
+  return { nodes: tempNodes, edges: tempEdges };
+};
+
+
+const appReducer = (state: AppState, event: EventType): AppState => {
+  if (event.type === 'TIME_TRAVEL') {
+    const { nodes: newNodes, edges: newEdges } = applyEvents(state.events, event.payload.index);
+    return {
+      ...state,
+      nodes: newNodes,
+      edges: newEdges,
+      currentEventIndex: event.payload.index,
+    };
+  }
+
+  let newNodes = [...state.nodes];
+  let newEdges = [...state.edges];
+
+  switch (event.type) {
+    case 'ADD_SWIMLANE':
+      newNodes = newNodes.concat(event.payload);
+      break;
+    case 'ADD_BLOCK':
+      newNodes = newNodes.concat(event.payload);
+      newNodes = newNodes.map((node) => {
+        if (node.id === event.payload.parentId) {
+          const currentSwimlaneWidth = node.style?.width || 800;
+          const potentialRightEdge = event.payload.position.x + (event.payload.style?.width || 100) + 20;
+          if (potentialRightEdge > currentSwimlaneWidth) {
+            return {
+              ...node,
+              style: {
+                ...node.style,
+                width: potentialRightEdge,
+              },
+            };
+          }
+        }
+        return node;
+      });
+      break;
+    case 'MOVE_NODE':
+      newNodes = newNodes.map((node) =>
+        node.id === event.payload.nodeId
+          ? { ...node, position: event.payload.position }
+          : node,
+      );
+      newNodes = newNodes.map((node) => {
+        if (node.type === 'swimlane' && node.id === event.payload.nodeId) {
+          return {
+            ...node,
+            position: {
+              x: 50,
+              y: event.payload.position.y,
+            },
+          };
+        }
+        return node;
+      });
+      break;
+    case 'UPDATE_NODE_LABEL':
+      newNodes = newNodes.map((node) =>
+        node.id === event.payload.nodeId
+          ? { ...node, data: { ...node.data, label: event.payload.label } }
+          : node,
+      );
+      break;
+    default:
+      return state;
+  }
+
+  const newEvents = state.events.slice(0, state.currentEventIndex + 1).concat(event);
+  const newCurrentEventIndex = newEvents.length - 1;
+
+  return {
+    ...state,
+    nodes: newNodes,
+    edges: newEdges,
+    events: newEvents,
+    currentEventIndex: newCurrentEventIndex,
+  };
+};
+
+// --- End Event Sourcing Setup ---
+
+const edgeTypes = {
+  button: ButtonEdge,
+};
+
+const nodeClassName = (node: any) => node.type;
+
+const OverviewFlow = () => {
+  const [state, dispatch] = useReducer(appReducer, initialState);
+  const { nodes, edges: stateEdges, events, currentEventIndex } = state;
+
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]); // Fix: useEdgesState<Edge>
+
+  const dispatchAddSwimlane = useCallback((swimlaneData: any) => {
+    dispatch({ type: 'ADD_SWIMLANE', payload: swimlaneData });
+  }, []);
+
+  const dispatchAddBlock = useCallback((blockData: any) => {
+    dispatch({ type: 'ADD_BLOCK', payload: blockData });
+  }, []);
+
+  const dispatchMoveNode = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    dispatch({ type: 'MOVE_NODE', payload: { nodeId, position } });
+  }, []);
+
+  const dispatchUpdateNodeLabel = useCallback((nodeId: string, label: string) => {
+    dispatch({ type: 'UPDATE_NODE_LABEL', payload: { nodeId, label } });
+  }, []);
+
+  const onTimeTravel = useCallback((index: number) => {
+    dispatch({ type: 'TIME_TRAVEL', payload: { index } });
+  }, []);
+
+  const onConnect = useCallback(
+    (params: any) => {
+      setEdges((eds: Edge[]) => addEdge(params, eds));
+    },
+    [],
+  );
+
+  const onNodesChange = useCallback(
+    (changes: any) => {
+      changes.forEach((change: any) => {
+        if (change.type === 'position' && change.position) {
+          dispatchMoveNode(change.id, change.position);
+        }
       });
     },
-    [setNodes],
+    [dispatchMoveNode],
   );
 
   const onAddSwimlane = useCallback(() => {
     const swimlanes = nodes.filter(node => node.type === 'swimlane');
-    let newY = 50; // Default starting Y
+    let newY = 50;
 
     if (swimlanes.length > 0) {
-      // Find the bottom-most swimlane
       const lastSwimlane = swimlanes.reduce((prev, current) => {
         const prevBottom = prev.position.y + (prev.style?.height || 0);
         const currentBottom = current.position.y + (current.style?.height || 0);
         return prevBottom > currentBottom ? prev : current;
       });
-      newY = (lastSwimlane.position.y || 0) + (lastSwimlane.style?.height || 200) + 20; // 20px spacing
+      newY = (lastSwimlane.position.y || 0) + (lastSwimlane.style?.height || 200) + 20;
     }
 
     const newSwimlane = {
@@ -98,28 +253,51 @@ const OverviewFlow = () => {
       data: { label: `Swimlane ${swimlanes.length + 1}` },
       style: { width: 800, height: 200, backgroundColor: 'rgba(200,200,255,0.2)', border: '1px solid #ccc' },
     };
-    setNodes((nds) => nds.concat(newSwimlane));
-  }, [nodes, setNodes]);
+    dispatchAddSwimlane(newSwimlane);
+  }, [nodes, dispatchAddSwimlane]);
+
+  const customNodeTypes = {
+    swimlane: (nodeProps: any) => (
+      <SwimlaneNode
+        {...nodeProps}
+        dispatchAddBlock={dispatchAddBlock}
+        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
+      />
+    ),
+    block: (nodeProps: any) => (
+      <BlockNode
+        {...nodeProps}
+        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
+      />
+    ),
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Topbar onAddSwimlane={onAddSwimlane} />
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange} // Use custom onNodesChange
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView
-        attributionPosition="top-right"
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        style={{ flexGrow: 1 }}
-      >
-        <MiniMap zoomable pannable nodeClassName={nodeClassName} />
-        <Controls />
-        <Background />
-      </ReactFlow>
+      <div style={{ display: 'flex', flexGrow: 1 }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          fitView
+          attributionPosition="top-right"
+          nodeTypes={customNodeTypes}
+          edgeTypes={edgeTypes}
+          style={{ flexGrow: 1 }}
+        >
+          <MiniMap zoomable pannable nodeClassName={nodeClassName} />
+          <Controls />
+          <Background />
+        </ReactFlow>
+        <HistoryPanel
+          events={events}
+          currentEventIndex={currentEventIndex}
+          onTimeTravel={onTimeTravel}
+        />
+      </div>
     </div>
   );
 };

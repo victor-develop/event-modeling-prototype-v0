@@ -1,15 +1,21 @@
-import React, { memo, useCallback, useState, useRef, useEffect } from 'react'; // Import useState, useRef, useEffect
+import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 
 interface BlockNodeProps {
   id: string;
   data: { label: string };
+  // New prop for dispatching events
+  dispatchUpdateNodeLabel: (nodeId: string, label: string) => void;
 }
 
-const BlockNode: React.FC<BlockNodeProps> = ({ id, data }) => {
-  const { setNodes } = useReactFlow();
-  const [isEditing, setIsEditing] = useState(false); // State for edit mode
-  const inputRef = useRef<HTMLInputElement>(null); // Ref for input focus
+const BlockNode: React.FC<BlockNodeProps> = ({
+  id,
+  data,
+  dispatchUpdateNodeLabel, // Destructure new prop
+}) => {
+  const { } = useReactFlow();
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the input when entering edit mode
   useEffect(() => {
@@ -19,21 +25,8 @@ const BlockNode: React.FC<BlockNodeProps> = ({ id, data }) => {
   }, [isEditing]);
 
   const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === id) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              label: evt.target.value,
-            },
-          };
-        }
-        return node;
-      }),
-    );
-  }, [id, setNodes]);
+    dispatchUpdateNodeLabel(id, evt.target.value); // Dispatch UPDATE_NODE_LABEL event
+  }, [id, dispatchUpdateNodeLabel]);
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -54,6 +47,9 @@ const BlockNode: React.FC<BlockNodeProps> = ({ id, data }) => {
       style={{
         width: '100%',
         height: '100%',
+        border: '1px solid #555',
+        borderRadius: '5px',
+        backgroundColor: '#fff',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
