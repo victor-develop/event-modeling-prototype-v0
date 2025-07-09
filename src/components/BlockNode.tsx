@@ -11,7 +11,7 @@ interface BlockNodeProps {
 const BlockNode: React.FC<BlockNodeProps> = ({
   id,
   data,
-  dispatchUpdateNodeLabel, // Destructure new prop
+  dispatchUpdateNodeLabel,
 }) => {
   const { } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
@@ -47,7 +47,7 @@ const BlockNode: React.FC<BlockNodeProps> = ({
       style={{
         width: '100%',
         height: '100%',
-        border: '1px solid #555',
+        // Removed border: '1px solid #555',
         borderRadius: '5px',
         backgroundColor: '#fff',
         display: 'flex',

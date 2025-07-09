@@ -6,7 +6,7 @@ import {
   Controls,
   Background,
   useEdgesState,
-  type Edge, // Fix: Import Edge as type
+  type Edge,
 } from '@xyflow/react';
 import { nanoid } from 'nanoid';
 
@@ -16,7 +16,7 @@ import Topbar from './components/Topbar';
 import SwimlaneNode from './components/SwimlaneNode';
 import BlockNode from './components/BlockNode';
 import HistoryPanel from './components/HistoryPanel';
-import ButtonEdge from './ButtonEdge'; // Re-import ButtonEdge
+import ButtonEdge from './ButtonEdge';
 
 // --- Event Sourcing Setup ---
 
@@ -71,20 +71,13 @@ const applyEvents = (events: EventType[], targetIndex: number): { nodes: any[]; 
         });
         break;
       case 'MOVE_NODE':
-        tempNodes = tempNodes.map((node) =>
-          node.id === event.payload.nodeId
-            ? { ...node, position: event.payload.position }
-            : node,
-        );
         tempNodes = tempNodes.map((node) => {
-          if (node.type === 'swimlane' && node.id === event.payload.nodeId) {
-            return {
-              ...node,
-              position: {
-                x: 50,
-                y: event.payload.position.y,
-              },
-            };
+          if (node.id === event.payload.nodeId) {
+            // If it's a swimlane, prevent movement
+            if (node.type === 'swimlane') {
+              return node; // Return the node unchanged
+            }
+            return { ...node, position: event.payload.position };
           }
           return node;
         });
@@ -140,20 +133,13 @@ const appReducer = (state: AppState, event: EventType): AppState => {
       });
       break;
     case 'MOVE_NODE':
-      newNodes = newNodes.map((node) =>
-        node.id === event.payload.nodeId
-          ? { ...node, position: event.payload.position }
-          : node,
-      );
       newNodes = newNodes.map((node) => {
-        if (node.type === 'swimlane' && node.id === event.payload.nodeId) {
-          return {
-            ...node,
-            position: {
-              x: 50,
-              y: event.payload.position.y,
-            },
-          };
+        if (node.id === event.payload.nodeId) {
+          // If it's a swimlane, prevent movement
+          if (node.type === 'swimlane') {
+            return node; // Return the node unchanged
+          }
+          return { ...node, position: event.payload.position };
         }
         return node;
       });
@@ -193,7 +179,7 @@ const OverviewFlow = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const { nodes, edges: stateEdges, events, currentEventIndex } = state;
 
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]); // Fix: useEdgesState<Edge>
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   const dispatchAddSwimlane = useCallback((swimlaneData: any) => {
     dispatch({ type: 'ADD_SWIMLANE', payload: swimlaneData });
@@ -226,11 +212,15 @@ const OverviewFlow = () => {
     (changes: any) => {
       changes.forEach((change: any) => {
         if (change.type === 'position' && change.position) {
-          dispatchMoveNode(change.id, change.position);
+          // Dispatch MOVE_NODE only if it's not a swimlane
+          const nodeToMove = nodes.find(n => n.id === change.id);
+          if (nodeToMove && nodeToMove.type !== 'swimlane') {
+            dispatchMoveNode(change.id, change.position);
+          }
         }
       });
     },
-    [dispatchMoveNode],
+    [dispatchMoveNode, nodes],
   );
 
   const onAddSwimlane = useCallback(() => {
