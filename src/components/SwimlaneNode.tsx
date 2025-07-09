@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useState, useRef, useEffect } from 'react'; // Import useState, useRef, useEffect
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { nanoid } from 'nanoid';
 
@@ -10,13 +10,20 @@ interface SwimlaneNodeProps {
 
 const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
   const { setNodes, getNodes } = useReactFlow();
+  const [isEditing, setIsEditing] = useState(false); // State for edit mode
+  const inputRef = useRef<HTMLInputElement>(null); // Ref for input focus
+
+  // Focus the input when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
 
   const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === id) {
-          // it's important that you create a new object here
-          // to make sure that the node is re-rendered
           return {
             ...node,
             data: {
@@ -53,8 +60,8 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
 
     const newBlock = {
       id: nanoid(),
-      type: 'block', // Changed to 'block'
-      position: { x: newX, y: topOffsetForBlocks }, // Position below the button/label
+      type: 'block',
+      position: { x: newX, y: topOffsetForBlocks },
       data: { label: `Block ${childNodes.length + 1}` },
       parentId: id,
       extent: 'parent',
@@ -86,6 +93,20 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
     });
   }, [id, setNodes, getNodes]);
 
+  const handleDoubleClick = useCallback(() => {
+    setIsEditing(true);
+  }, []);
+
+  const handleBlur = useCallback(() => {
+    setIsEditing(false);
+  }, []);
+
+  const handleKeyDown = useCallback((evt: React.KeyboardEvent<HTMLInputElement>) => {
+    if (evt.key === 'Enter') {
+      setIsEditing(false);
+    }
+  }, []);
+
   return (
     <div
       style={{
@@ -99,12 +120,24 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
         flexDirection: 'column',
       }}
     >
-      <input
-        type="text"
-        value={data.label}
-        onChange={onLabelChange}
-        style={{ fontWeight: 'bold', marginBottom: '10px', border: 'none', background: 'transparent', fontSize: '1em' }}
-      />
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={data.label}
+          onChange={onLabelChange}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          style={{ fontWeight: 'bold', marginBottom: '10px', border: 'none', background: 'transparent', fontSize: '1em', outline: 'none' }}
+        />
+      ) : (
+        <div
+          onDoubleClick={handleDoubleClick}
+          style={{ fontWeight: 'bold', marginBottom: '10px', cursor: 'text', fontSize: '1em' }}
+        >
+          {data.label}
+        </div>
+      )}
       <button onClick={onAddBlock} style={{ marginBottom: '10px', padding: '5px 10px', cursor: 'pointer' }}>
         Add Block
       </button>
