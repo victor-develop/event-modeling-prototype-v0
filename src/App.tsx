@@ -26,6 +26,7 @@ import TextInputNode from './TextInputNode';
 import ButtonEdge from './ButtonEdge';
 import Topbar from './components/Topbar';
 import SwimlaneNode from './components/SwimlaneNode';
+import BlockNode from './components/BlockNode'; // Import BlockNode
 
 const nodeTypes = {
   annotation: AnnotationNode,
@@ -34,6 +35,7 @@ const nodeTypes = {
   circle: CircleNode,
   textinput: TextInputNode,
   swimlane: SwimlaneNode,
+  block: BlockNode, // Register BlockNode
 };
 
 const edgeTypes = {
@@ -43,8 +45,8 @@ const edgeTypes = {
 const nodeClassName = (node) => node.type;
 
 const OverviewFlow = () => {
-  const [nodes, setNodes] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
     [],

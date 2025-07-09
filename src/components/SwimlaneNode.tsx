@@ -11,6 +11,25 @@ interface SwimlaneNodeProps {
 const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
   const { setNodes, getNodes } = useReactFlow();
 
+  const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === id) {
+          // it's important that you create a new object here
+          // to make sure that the node is re-rendered
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              label: evt.target.value,
+            },
+          };
+        }
+        return node;
+      }),
+    );
+  }, [id, setNodes]);
+
   const onAddBlock = useCallback(() => {
     const parentNode = getNodes().find((node) => node.id === id);
     if (!parentNode) return;
@@ -34,7 +53,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
 
     const newBlock = {
       id: nanoid(),
-      type: 'default',
+      type: 'block', // Changed to 'block'
       position: { x: newX, y: topOffsetForBlocks }, // Position below the button/label
       data: { label: `Block ${childNodes.length + 1}` },
       parentId: id,
@@ -80,16 +99,16 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({ id, data, style }) => {
         flexDirection: 'column',
       }}
     >
-      <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>{data.label}</div>
+      <input
+        type="text"
+        value={data.label}
+        onChange={onLabelChange}
+        style={{ fontWeight: 'bold', marginBottom: '10px', border: 'none', background: 'transparent', fontSize: '1em' }}
+      />
       <button onClick={onAddBlock} style={{ marginBottom: '10px', padding: '5px 10px', cursor: 'pointer' }}>
         Add Block
       </button>
-      {/* The actual blocks are rendered by React Flow based on their parentId */}
-      {/* This div is just for visual structure within the custom node */}
       <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', overflowX: 'auto' }}>
-        {/* Child nodes (blocks) are not rendered directly here. */}
-        {/* Their positions are relative to the parent node's (0,0) */}
-        {/* and are handled by React Flow's rendering engine. */}
       </div>
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
