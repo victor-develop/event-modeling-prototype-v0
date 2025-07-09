@@ -1,28 +1,41 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 interface TopbarProps {
   onAddSwimlane: () => void;
+  onExportEvents: () => void;
+  onImportEvents: () => void;
+  onCompressSnapshot: () => void; // New prop for compress snapshot
 }
 
-const Topbar: React.FC<TopbarProps> = ({ onAddSwimlane }) => {
+const Topbar: React.FC<TopbarProps> = ({ onAddSwimlane, onExportEvents, onImportEvents, onCompressSnapshot }) => {
   return (
-    <div style={{
-      width: '100%',
-      height: '50px',
-      backgroundColor: '#f0f0f0',
-      borderBottom: '1px solid #ccc',
-      display: 'flex',
-      alignItems: 'center',
-      padding: '0 20px',
-      boxSizing: 'border-box',
-      justifyContent: 'space-between',
-    }}>
-      <div style={{ fontWeight: 'bold' }}>Event Modeling App</div>
-      <button onClick={onAddSwimlane} style={{ padding: '8px 15px', cursor: 'pointer' }}>
-        Add Swimlane
-      </button>
+    <div
+      style={{
+        padding: '10px',
+        borderBottom: '1px solid #eee',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#f8f8f8',
+      }}
+    >
+      <div>
+        <button onClick={onAddSwimlane} style={{ marginRight: '10px' }}>
+          Add Swimlane
+        </button>
+        <button onClick={onExportEvents} style={{ marginRight: '10px' }}>
+          Export Events
+        </button>
+        <button onClick={onImportEvents} style={{ marginRight: '10px' }}>
+          Import Events
+        </button>
+        <button onClick={onCompressSnapshot}>
+          Compress Snapshot
+        </button>
+      </div>
+      <h2 style={{ margin: 0 }}>Event Modeling App</h2>
     </div>
   );
 };
 
-export default Topbar;
+export default memo(Topbar);

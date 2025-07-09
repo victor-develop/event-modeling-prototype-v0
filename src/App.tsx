@@ -25,27 +25,41 @@ type EventType =
   | { type: 'ADD_BLOCK'; payload: any }
   | { type: 'MOVE_NODE'; payload: { nodeId: string; position: { x: number; y: number } } }
   | { type: 'UPDATE_NODE_LABEL'; payload: { nodeId: string; label: string } }
-  | { type: 'TIME_TRAVEL'; payload: { index: number } };
+  | { type: 'TIME_TRAVEL'; payload: { index: number } }
+  | { type: 'LOAD_EVENTS'; payload: EventType[] }
+  | { type: 'CREATE_SNAPSHOT'; payload: { snapshotNodes: any[]; snapshotEdges: any[]; snapshotIndex: number } }; // New event type
 
 interface AppState {
   nodes: any[];
   edges: any[];
   events: EventType[];
   currentEventIndex: number;
+  snapshotNodes: any[] | null; // New: Store snapshot nodes
+  snapshotEdges: any[] | null; // New: Store snapshot edges
+  snapshotIndex: number; // New: Index in the original event stream where snapshot was taken
 }
 
-const initialState: AppState = {
+export const initialState: AppState = {
   nodes: [],
   edges: [],
   events: [],
   currentEventIndex: -1,
+  snapshotNodes: null,
+  snapshotEdges: null,
+  snapshotIndex: -1,
 };
 
-const applyEvents = (events: EventType[], targetIndex: number): { nodes: any[]; edges: any[] } => {
-  let tempNodes: any[] = [];
-  let tempEdges: any[] = [];
+export const applyEvents = (
+  events: EventType[],
+  targetIndex: number,
+  initialNodes: any[] = [], // New parameter
+  initialEdges: any[] = [], // New parameter
+  startIndex: number = 0, // New parameter: index to start applying events from
+): { nodes: any[]; edges: any[] } => {
+  let tempNodes: any[] = [...initialNodes]; // Start with initial nodes
+  let tempEdges: any[] = [...initialEdges]; // Start with initial edges
 
-  for (let i = 0; i <= targetIndex; i++) {
+  for (let i = startIndex; i <= targetIndex; i++) { // Loop from startIndex
     const event = events[i];
     switch (event.type) {
       case 'ADD_SWIMLANE':
@@ -95,14 +109,65 @@ const applyEvents = (events: EventType[], targetIndex: number): { nodes: any[]; 
 };
 
 
-const appReducer = (state: AppState, event: EventType): AppState => {
+export const appReducer = (state: AppState, event: EventType): AppState => {
   if (event.type === 'TIME_TRAVEL') {
-    const { nodes: newNodes, edges: newEdges } = applyEvents(state.events, event.payload.index);
+    let newNodes: any[] = [];
+    let newEdges: any[] = [];
+    let startIndex = 0;
+
+    // If a snapshot exists, always start from the snapshot's state
+    if (state.snapshotNodes && state.snapshotEdges) {
+      newNodes = state.snapshotNodes;
+      newEdges = state.snapshotEdges;
+      // The events array in state is already truncated, so we apply from its start
+      // The startIndex for applyEvents should be 0 relative to the current events array
+    }
+
+    const { nodes: replayedNodes, edges: replayedEdges } = applyEvents(
+      state.events,
+      event.payload.index,
+      newNodes,
+      newEdges,
+      startIndex
+    );
+
+    return {
+      ...state,
+      nodes: replayedNodes,
+      edges: replayedEdges,
+      currentEventIndex: event.payload.index,
+    };
+  }
+
+  if (event.type === 'LOAD_EVENTS') {
+    const newEvents = event.payload;
+    const newCurrentEventIndex = newEvents.length > 0 ? newEvents.length - 1 : -1;
+    const { nodes: newNodes, edges: newEdges } = applyEvents(newEvents, newCurrentEventIndex);
     return {
       ...state,
       nodes: newNodes,
       edges: newEdges,
-      currentEventIndex: event.payload.index,
+      events: newEvents,
+      currentEventIndex: newCurrentEventIndex,
+      snapshotNodes: null, // Reset snapshot on load
+      snapshotEdges: null, // Reset snapshot on load
+      snapshotIndex: -1,   // Reset snapshot on load
+    };
+  }
+
+  if (event.type === 'CREATE_SNAPSHOT') { // Handle new CREATE_SNAPSHOT type
+    const { snapshotNodes, snapshotEdges, snapshotIndex } = event.payload;
+    const remainingEvents = state.events.slice(snapshotIndex + 1); // Keep events after snapshot
+
+    return {
+      ...state,
+      nodes: snapshotNodes, // The state is now the snapshot
+      edges: snapshotEdges, // The state is now the snapshot
+      events: remainingEvents, // Only events after the snapshot remain
+      currentEventIndex: -1, // After snapshot, always focus on the starting point
+      snapshotNodes: snapshotNodes, // Store the snapshot
+      snapshotEdges: snapshotEdges, // Store the snapshot
+      snapshotIndex: snapshotIndex, // Store the original index of the snapshot
     };
   }
 
@@ -201,6 +266,55 @@ const OverviewFlow = () => {
     dispatch({ type: 'TIME_TRAVEL', payload: { index } });
   }, []);
 
+  const onExportEvents = useCallback(() => {
+    const json = JSON.stringify(events, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = 'event-log.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(href);
+  }, [events]);
+
+  const onImportEvents = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const parsedEvents: EventType[] = JSON.parse(event.target?.result as string);
+            dispatch({ type: 'LOAD_EVENTS', payload: parsedEvents });
+          } catch (error) {
+            console.error('Failed to parse event log:', error);
+            alert('Failed to load events. Please ensure the file is a valid JSON event log.');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  }, []);
+
+  const onCompressSnapshot = useCallback(() => {
+    // Dispatch CREATE_SNAPSHOT with the current state
+    dispatch({
+      type: 'CREATE_SNAPSHOT',
+      payload: {
+        snapshotNodes: nodes,
+        snapshotEdges: stateEdges, // Use stateEdges from the reducer state
+        snapshotIndex: currentEventIndex,
+      },
+    });
+  }, [nodes, stateEdges, currentEventIndex]);
+
+
   const onConnect = useCallback(
     (params: any) => {
       setEdges((eds: Edge[]) => addEdge(params, eds));
@@ -264,7 +378,12 @@ const OverviewFlow = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Topbar onAddSwimlane={onAddSwimlane} />
+      <Topbar
+        onAddSwimlane={onAddSwimlane}
+        onExportEvents={onExportEvents}
+        onImportEvents={onImportEvents}
+        onCompressSnapshot={onCompressSnapshot} // Pass new handler
+      />
       <div style={{ display: 'flex', flexGrow: 1 }}>
         <ReactFlow
           nodes={nodes}
@@ -286,6 +405,8 @@ const OverviewFlow = () => {
           events={events}
           currentEventIndex={currentEventIndex}
           onTimeTravel={onTimeTravel}
+          snapshotNodes={state.snapshotNodes}
+          snapshotEdges={state.snapshotEdges}
         />
       </div>
     </div>

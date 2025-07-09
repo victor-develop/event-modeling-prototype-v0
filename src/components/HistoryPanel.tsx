@@ -4,15 +4,20 @@ interface HistoryPanelProps {
   events: any[];
   currentEventIndex: number;
   onTimeTravel: (index: number) => void;
+  // New props for snapshot information
+  snapshotNodes: any[] | null;
+  snapshotEdges: any[] | null;
 }
 
 const HistoryPanel: React.FC<HistoryPanelProps> = ({
   events,
   currentEventIndex,
   onTimeTravel,
+  snapshotNodes, // Destructure new prop
+  snapshotEdges, // Destructure new prop
 }) => {
   const handlePrev = useCallback(() => {
-    if (currentEventIndex > 0) {
+    if (currentEventIndex > -1) { // Allow going back to -1 (snapshot)
       onTimeTravel(currentEventIndex - 1);
     }
   }, [currentEventIndex, onTimeTravel]);
@@ -22,6 +27,8 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
       onTimeTravel(currentEventIndex + 1);
     }
   }, [currentEventIndex, events.length, onTimeTravel]);
+
+  const isSnapshotActive = currentEventIndex === -1 && snapshotNodes !== null;
 
   return (
     <div
@@ -38,7 +45,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
     >
       <h3 style={{ marginTop: 0 }}>History</h3>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <button onClick={handlePrev} disabled={currentEventIndex <= 0}>
+        <button onClick={handlePrev} disabled={currentEventIndex <= -1}> {/* Disable if at snapshot or before */}
           Previous
         </button>
         <button onClick={handleNext} disabled={currentEventIndex >= events.length - 1}>
@@ -46,6 +53,22 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </button>
       </div>
       <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+        {snapshotNodes && ( // Conditionally render "Starting Point"
+          <div
+            style={{
+              padding: '5px',
+              backgroundColor: isSnapshotActive ? '#e0e0e0' : 'transparent',
+              cursor: 'pointer',
+              marginBottom: '5px',
+              borderRadius: '3px',
+              fontWeight: 'bold',
+              color: '#555',
+            }}
+            onClick={() => onTimeTravel(-1)} // Time travel to snapshot
+          >
+            Starting Point (Snapshot)
+          </div>
+        )}
         {events.map((event, index) => (
           <div
             key={index}
