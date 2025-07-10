@@ -6,7 +6,11 @@ import {
   Controls,
   Background,
   useEdgesState,
+  applyEdgeChanges, applyNodeChanges,
   type Edge,
+  type NodeChange,
+  type EdgeChange,
+  type Connection,
 } from '@xyflow/react';
 import { nanoid } from 'nanoid';
 
@@ -20,19 +24,22 @@ import ButtonEdge from './ButtonEdge';
 
 // --- Event Sourcing Setup ---
 
-type EventType =
+type IntentionEventType =
+  | { type: 'CHANGE_NODES'; payload: NodeChange[] }
+  | { type: 'CHANGE_EDGES'; payload: EdgeChange[] }
+  | { type: 'NEW_CONNECTION'; payload: Connection }
   | { type: 'ADD_SWIMLANE'; payload: any }
   | { type: 'ADD_BLOCK'; payload: any }
   | { type: 'MOVE_NODE'; payload: { nodeId: string; position: { x: number; y: number } } }
   | { type: 'UPDATE_NODE_LABEL'; payload: { nodeId: string; label: string } }
   | { type: 'TIME_TRAVEL'; payload: { index: number } }
-  | { type: 'LOAD_EVENTS'; payload: EventType[] }
+  | { type: 'LOAD_EVENTS'; payload: IntentionEventType[] }
   | { type: 'CREATE_SNAPSHOT'; payload: { snapshotNodes: any[]; snapshotEdges: any[]; snapshotIndex: number } }; // New event type
 
 interface AppState {
   nodes: any[];
   edges: any[];
-  events: EventType[];
+  events: IntentionEventType[];
   currentEventIndex: number;
   snapshotNodes: any[] | null; // New: Store snapshot nodes
   snapshotEdges: any[] | null; // New: Store snapshot edges
@@ -50,7 +57,7 @@ export const initialState: AppState = {
 };
 
 export const applyEvents = (
-  events: EventType[],
+  events: IntentionEventType[],
   targetIndex: number,
   initialNodes: any[] = [], // New parameter
   initialEdges: any[] = [], // New parameter
@@ -109,8 +116,8 @@ export const applyEvents = (
 };
 
 
-export const appReducer = (state: AppState, event: EventType): AppState => {
-  if (event.type === 'TIME_TRAVEL') {
+export const appReducer = (state: AppState, command: IntentionEventType): AppState => {
+  if (command.type === 'TIME_TRAVEL') {
     let newNodes: any[] = [];
     let newEdges: any[] = [];
     let startIndex = 0;
@@ -125,7 +132,7 @@ export const appReducer = (state: AppState, event: EventType): AppState => {
 
     const { nodes: replayedNodes, edges: replayedEdges } = applyEvents(
       state.events,
-      event.payload.index,
+      command.payload.index,
       newNodes,
       newEdges,
       startIndex
@@ -135,12 +142,12 @@ export const appReducer = (state: AppState, event: EventType): AppState => {
       ...state,
       nodes: replayedNodes,
       edges: replayedEdges,
-      currentEventIndex: event.payload.index,
+      currentEventIndex: command.payload.index,
     };
   }
 
-  if (event.type === 'LOAD_EVENTS') {
-    const newEvents = event.payload;
+  if (command.type === 'LOAD_EVENTS') {
+    const newEvents = command.payload;
     const newCurrentEventIndex = newEvents.length > 0 ? newEvents.length - 1 : -1;
     const { nodes: newNodes, edges: newEdges } = applyEvents(newEvents, newCurrentEventIndex);
     return {
@@ -155,8 +162,8 @@ export const appReducer = (state: AppState, event: EventType): AppState => {
     };
   }
 
-  if (event.type === 'CREATE_SNAPSHOT') { // Handle new CREATE_SNAPSHOT type
-    const { snapshotNodes, snapshotEdges, snapshotIndex } = event.payload;
+  if (command.type === 'CREATE_SNAPSHOT') { // Handle new CREATE_SNAPSHOT type
+    const { snapshotNodes, snapshotEdges, snapshotIndex } = command.payload;
     const remainingEvents = state.events.slice(snapshotIndex + 1); // Keep events after snapshot
 
     return {
@@ -174,16 +181,25 @@ export const appReducer = (state: AppState, event: EventType): AppState => {
   let newNodes = [...state.nodes];
   let newEdges = [...state.edges];
 
-  switch (event.type) {
+  switch (command.type) {
+    case 'CHANGE_NODES':
+      newNodes = applyNodeChanges(command.payload, newNodes);
+      break;
+    case 'CHANGE_EDGES':
+      newEdges = applyEdgeChanges(command.payload, newEdges);
+      break;
+    case 'NEW_CONNECTION':
+      newEdges = addEdge(command.payload, newEdges);
+      break;
     case 'ADD_SWIMLANE':
-      newNodes = newNodes.concat(event.payload);
+      newNodes = newNodes.concat(command.payload);
       break;
     case 'ADD_BLOCK':
-      newNodes = newNodes.concat(event.payload);
+      newNodes = newNodes.concat(command.payload);
       newNodes = newNodes.map((node) => {
-        if (node.id === event.payload.parentId) {
+        if (node.id === command.payload.parentId) {
           const currentSwimlaneWidth = node.style?.width || 800;
-          const potentialRightEdge = event.payload.position.x + (event.payload.style?.width || 100) + 20;
+          const potentialRightEdge = command.payload.position.x + (command.payload.style?.width || 100) + 20;
           if (potentialRightEdge > currentSwimlaneWidth) {
             return {
               ...node,
@@ -199,20 +215,20 @@ export const appReducer = (state: AppState, event: EventType): AppState => {
       break;
     case 'MOVE_NODE':
       newNodes = newNodes.map((node) => {
-        if (node.id === event.payload.nodeId) {
+        if (node.id === command.payload.nodeId) {
           // If it's a swimlane, prevent movement
           if (node.type === 'swimlane') {
             return node; // Return the node unchanged
           }
-          return { ...node, position: event.payload.position };
+          return { ...node, position: command.payload.position };
         }
         return node;
       });
       break;
     case 'UPDATE_NODE_LABEL':
       newNodes = newNodes.map((node) =>
-        node.id === event.payload.nodeId
-          ? { ...node, data: { ...node.data, label: event.payload.label } }
+        node.id === command.payload.nodeId
+          ? { ...node, data: { ...node.data, label: command.payload.label } }
           : node,
       );
       break;
@@ -220,7 +236,7 @@ export const appReducer = (state: AppState, event: EventType): AppState => {
       return state;
   }
 
-  const newEvents = state.events.slice(0, state.currentEventIndex + 1).concat(event);
+  const newEvents = state.events.slice(0, state.currentEventIndex + 1).concat(command);
   const newCurrentEventIndex = newEvents.length - 1;
 
   return {
@@ -242,9 +258,19 @@ const nodeClassName = (node: any) => node.type;
 
 const OverviewFlow = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const { nodes, edges: stateEdges, events, currentEventIndex } = state;
+  const { nodes, edges, events, currentEventIndex } = state;
 
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const dispatchNodeChanges = useCallback((changes: NodeChange[]) => {
+    dispatch({ type: 'CHANGE_NODES', payload: changes });
+  }, [nodes]);
+
+  const dispatchEdgeChanges = useCallback((changes: EdgeChange[]) => {
+    dispatch({ type: 'CHANGE_EDGES', payload: changes });
+  }, [edges]);
+
+  const dispatchNewConnection = useCallback((payload: Connection) => {
+    dispatch({ type: 'NEW_CONNECTION', payload });
+  }, []);
 
   const dispatchAddSwimlane = useCallback((swimlaneData: any) => {
     dispatch({ type: 'ADD_SWIMLANE', payload: swimlaneData });
@@ -257,6 +283,7 @@ const OverviewFlow = () => {
   const dispatchMoveNode = useCallback((nodeId: string, position: { x: number; y: number }) => {
     dispatch({ type: 'MOVE_NODE', payload: { nodeId, position } });
   }, []);
+  
 
   const dispatchUpdateNodeLabel = useCallback((nodeId: string, label: string) => {
     dispatch({ type: 'UPDATE_NODE_LABEL', payload: { nodeId, label } });
@@ -289,7 +316,7 @@ const OverviewFlow = () => {
         const reader = new FileReader();
         reader.onload = (event) => {
           try {
-            const parsedEvents: EventType[] = JSON.parse(event.target?.result as string);
+            const parsedEvents: IntentionEventType[] = JSON.parse(event.target?.result as string);
             dispatch({ type: 'LOAD_EVENTS', payload: parsedEvents });
           } catch (error) {
             console.error('Failed to parse event log:', error);
@@ -308,33 +335,32 @@ const OverviewFlow = () => {
       type: 'CREATE_SNAPSHOT',
       payload: {
         snapshotNodes: nodes,
-        snapshotEdges: stateEdges, // Use stateEdges from the reducer state
+        snapshotEdges: edges, // Use edges from the current state
         snapshotIndex: currentEventIndex,
       },
     });
-  }, [nodes, stateEdges, currentEventIndex]);
+  }, [nodes, edges, currentEventIndex]);
 
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      dispatchEdgeChanges(changes);
+    },
+    [dispatchEdgeChanges],
+  );
 
   const onConnect = useCallback(
-    (params: any) => {
-      setEdges((eds: Edge[]) => addEdge(params, eds));
+    (params: Connection) => {
+      dispatchNewConnection(params);
     },
-    [],
+    [dispatchNewConnection],
   );
 
   const onNodesChange = useCallback(
-    (changes: any) => {
-      changes.forEach((change: any) => {
-        if (change.type === 'position' && change.position) {
-          // Dispatch MOVE_NODE only if it's not a swimlane
-          const nodeToMove = nodes.find(n => n.id === change.id);
-          if (nodeToMove && nodeToMove.type !== 'swimlane') {
-            dispatchMoveNode(change.id, change.position);
-          }
-        }
-      });
+    (changes: NodeChange[]) => {
+      dispatchNodeChanges(changes);
     },
-    [dispatchMoveNode, nodes],
+    [dispatchNodeChanges],
   );
 
   const onAddSwimlane = useCallback(() => {
@@ -360,7 +386,7 @@ const OverviewFlow = () => {
     dispatchAddSwimlane(newSwimlane);
   }, [nodes, dispatchAddSwimlane]);
 
-  const customNodeTypes = {
+  const customNodeTypes = React.useMemo(() => ({
     swimlane: (nodeProps: any) => (
       <SwimlaneNode
         {...nodeProps}
@@ -374,7 +400,7 @@ const OverviewFlow = () => {
         dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
       />
     ),
-  };
+  }), [dispatchAddBlock, dispatchUpdateNodeLabel]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
