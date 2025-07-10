@@ -555,6 +555,62 @@ The example uses two CSS files for styling:
 
 It's important to import `@xyflow/react/dist/style.css` first, then your custom styles to override or extend them.
 
+## Using App Reducer Pattern
+
+```
+import React, { useReducer } from 'react';
+import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
+import { nodes as initialNodes, edges as initialEdges } from './initial-elements';
+
+const initialState = {
+  nodes: initialNodes,
+  edges: initialEdges,
+  selectedNodes: [],
+  selectedEdges: [],
+};
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'SET_NODES':
+      return { ...state, nodes: action.payload };
+    case 'SET_EDGES':
+      return { ...state, edges: action.payload };
+    case 'ON_NODES_CHANGE':
+      return { ...state, nodes: applyNodeChanges(action.payload, state.nodes) };
+    case 'ON_EDGES_CHANGE':
+      return { ...state, edges: applyEdgeChanges(action.payload, state.edges) };
+    case 'SET_SELECTED_NODES_AND_EDGES':
+      return {
+        ...state,
+        selectedNodes: action.payload.nodes,
+        selectedEdges: action.payload.edges,
+      };
+    case 'SET_SELECTED_NODES':
+      return { ...state, selectedNodes: action.payload };
+    default:
+      return state;
+  }
+}
+
+export function FlowWithReducer() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  // Example usage:
+  // dispatch({ type: 'SET_NODES', payload: [...] })
+  // dispatch({ type: 'ON_NODES_CHANGE', payload: [...] })
+  // etc.
+
+  // Pass dispatch or wrapped handlers to your React Flow instance as needed
+
+  return (
+    // ... your component rendering logic using state.nodes, state.edges, etc.
+    <div>
+      {/* Render your flow UI here */}
+    </div>
+  );
+}
+```
+
 ## Conclusion
 
 This `xyflow-react-example` provides a solid foundation for understanding and implementing various features of `@xyflow/react`. By studying its structure and components, you can learn to create complex and interactive node-based applications.
