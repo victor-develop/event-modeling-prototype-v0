@@ -5,9 +5,7 @@ import {
   MiniMap,
   Controls,
   Background,
-  useEdgesState,
   applyEdgeChanges, applyNodeChanges,
-  type Edge,
   type NodeChange,
   type EdgeChange,
   type Connection,
@@ -35,6 +33,12 @@ type IntentionEventType =
   | { type: 'TIME_TRAVEL'; payload: { index: number } }
   | { type: 'LOAD_EVENTS'; payload: IntentionEventType[] }
   | { type: 'CREATE_SNAPSHOT'; payload: { snapshotNodes: any[]; snapshotEdges: any[]; snapshotIndex: number } }; // New event type
+
+const TIME_TRAVELLABLE_EVENTS = [
+  'ADD_SWIMLANE',
+  'ADD_BLOCK',
+  'UPDATE_NODE_LABEL'
+]
 
 interface AppState {
   nodes: any[];
@@ -224,8 +228,9 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
       return state;
   }
 
-  const newEvents = state.events.slice(0, state.currentEventIndex + 1).concat(command);
-  const newCurrentEventIndex = newEvents.length - 1;
+  const [newEvents, newCurrentEventIndex] = TIME_TRAVELLABLE_EVENTS.includes(command.type)
+  ? [state.events.slice(0, state.currentEventIndex + 1).concat(command), state.currentEventIndex + 1]
+  : [state.events, state.currentEventIndex];
 
   return {
     ...state,
