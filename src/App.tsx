@@ -213,18 +213,6 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
         return node;
       });
       break;
-    case 'MOVE_NODE':
-      newNodes = newNodes.map((node) => {
-        if (node.id === command.payload.nodeId) {
-          // If it's a swimlane, prevent movement
-          if (node.type === 'swimlane') {
-            return node; // Return the node unchanged
-          }
-          return { ...node, position: command.payload.position };
-        }
-        return node;
-      });
-      break;
     case 'UPDATE_NODE_LABEL':
       newNodes = newNodes.map((node) =>
         node.id === command.payload.nodeId
