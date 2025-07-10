@@ -18,7 +18,6 @@ import Topbar from './components/Topbar';
 import SwimlaneNode from './components/SwimlaneNode';
 import BlockNode from './components/BlockNode';
 import HistoryPanel from './components/HistoryPanel';
-import ButtonEdge from './ButtonEdge';
 
 // --- Event Sourcing Setup ---
 
@@ -221,7 +220,6 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
 // --- End Event Sourcing Setup ---
 
 const edgeTypes = {
-  button: ButtonEdge,
 };
 
 const nodeClassName = (node: any) => node.type;
