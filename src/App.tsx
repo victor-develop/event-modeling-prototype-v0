@@ -37,6 +37,7 @@ type IntentionEventType =
 const TIME_TRAVELLABLE_EVENTS = [
   'ADD_SWIMLANE',
   'ADD_BLOCK',
+  'NEW_CONNECTION',
   'UPDATE_NODE_LABEL'
 ]
 
@@ -186,6 +187,7 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
   let newEdges = [...state.edges];
 
   switch (command.type) {
+    // CHANGE_NODES, CHANGE_EDGES, NEW_CONNECTION are React Flow's built-in event types.
     case 'CHANGE_NODES':
       newNodes = applyNodeChanges(command.payload, newNodes);
       break;
