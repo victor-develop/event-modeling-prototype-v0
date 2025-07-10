@@ -22,17 +22,25 @@ import ButtonEdge from './ButtonEdge';
 
 // --- Event Sourcing Setup ---
 
-type IntentionEventType =
-  | { type: 'CHANGE_NODES'; payload: NodeChange[] }
+type ReactFlowNativeEventType = 
+  { type: 'CHANGE_NODES'; payload: NodeChange[] }
   | { type: 'CHANGE_EDGES'; payload: EdgeChange[] }
   | { type: 'NEW_CONNECTION'; payload: Connection }
+
+type ModelingEditorEventType =
   | { type: 'ADD_SWIMLANE'; payload: any }
   | { type: 'ADD_BLOCK'; payload: any }
-  | { type: 'MOVE_NODE'; payload: { nodeId: string; position: { x: number; y: number } } }
-  | { type: 'UPDATE_NODE_LABEL'; payload: { nodeId: string; label: string } }
-  | { type: 'TIME_TRAVEL'; payload: { index: number } }
+  | { type: 'UPDATE_NODE_LABEL'; payload: { nodeId: string; label: string } };
+
+type EventSourcingEventType =
+   { type: 'TIME_TRAVEL'; payload: { index: number } }
   | { type: 'LOAD_EVENTS'; payload: IntentionEventType[] }
   | { type: 'CREATE_SNAPSHOT'; payload: { snapshotNodes: any[]; snapshotEdges: any[]; snapshotIndex: number } }; // New event type
+
+type IntentionEventType =
+  ReactFlowNativeEventType
+  | ModelingEditorEventType
+  | EventSourcingEventType;
 
 const TIME_TRAVELLABLE_EVENTS = [
   'ADD_SWIMLANE',
