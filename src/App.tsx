@@ -256,7 +256,7 @@ const edgeTypes = {
 
 const nodeClassName = (node: any) => node.type;
 
-const OverviewFlow = () => {
+const App = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const { nodes, edges, events, currentEventIndex } = state;
 
@@ -439,4 +439,4 @@ const OverviewFlow = () => {
   );
 };
 
-export default OverviewFlow;
+export default App;
