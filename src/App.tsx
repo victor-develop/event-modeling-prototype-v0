@@ -280,11 +280,6 @@ const App = () => {
     dispatch({ type: 'ADD_BLOCK', payload: blockData });
   }, []);
 
-  const dispatchMoveNode = useCallback((nodeId: string, position: { x: number; y: number }) => {
-    dispatch({ type: 'MOVE_NODE', payload: { nodeId, position } });
-  }, []);
-  
-
   const dispatchUpdateNodeLabel = useCallback((nodeId: string, label: string) => {
     dispatch({ type: 'UPDATE_NODE_LABEL', payload: { nodeId, label } });
   }, []);
@@ -358,7 +353,9 @@ const App = () => {
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      dispatchNodeChanges(changes);
+      // filter out swimlane position changes to prevent swimlanes from being moved
+      const filteredChanges = changes.filter(change => !(change.type === 'position' && nodes.find(node => node.id === change.id)?.type === 'swimlane'));
+      filteredChanges.length > 0 && dispatchNodeChanges(filteredChanges);
     },
     [dispatchNodeChanges],
   );

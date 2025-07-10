@@ -70,7 +70,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
           </div>
         )}
         {events.map((event, index) => (
-          <div
+            <div
             key={index}
             style={{
               padding: '5px',
@@ -78,11 +78,15 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               cursor: 'pointer',
               marginBottom: '5px',
               borderRadius: '3px',
+              wordBreak: 'break-word',
+              whiteSpace: 'pre-line',
+              overflowWrap: 'break-word',
             }}
             onClick={() => onTimeTravel(index)}
-          >
-            <strong>{event.type}</strong>: {JSON.stringify(event.payload)}
-          </div>
+            >
+            <strong>{event.type}</strong>:<br />
+            {JSON.stringify(event.payload)}
+            </div>
         ))}
       </div>
     </div>
