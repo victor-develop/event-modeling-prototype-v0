@@ -81,53 +81,65 @@ export const applyEvents = (
 
   for (let i = startIndex; i <= targetIndex; i++) { // Loop from startIndex
     const event = events[i];
-    switch (event.type) {
-      case 'ADD_SWIMLANE':
-        tempNodes = tempNodes.concat(event.payload);
-        break;
-      case 'ADD_BLOCK':
-        tempNodes = tempNodes.concat(event.payload);
-        tempNodes = tempNodes.map((node) => {
-          if (node.id === event.payload.parentId) {
-            const currentSwimlaneWidth = node.style?.width || 800;
-            const potentialRightEdge = event.payload.position.x + (event.payload.style?.width || 100) + 20;
-            if (potentialRightEdge > currentSwimlaneWidth) {
-              return {
-                ...node,
-                style: {
-                  ...node.style,
-                  width: potentialRightEdge,
-                },
-              };
-            }
-          }
-          return node;
-        });
-        break;
-      case 'MOVE_NODE':
-        tempNodes = tempNodes.map((node) => {
-          if (node.id === event.payload.nodeId) {
-            // If it's a swimlane, prevent movement
-            if (node.type === 'swimlane') {
-              return node; // Return the node unchanged
-            }
-            return { ...node, position: event.payload.position };
-          }
-          return node;
-        });
-        break;
-      case 'UPDATE_NODE_LABEL':
-        tempNodes = tempNodes.map((node) =>
-          node.id === event.payload.nodeId
-            ? { ...node, data: { ...node.data, label: event.payload.label } }
-            : node,
-        );
-        break;
-    }
+    const reducedResult = reduceCanvas(event, tempNodes, tempEdges);
+    tempNodes = reducedResult.nodes;
+    tempEdges = reducedResult.edges;
   }
   return { nodes: tempNodes, edges: tempEdges };
 };
 
+function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
+    let newNodes = [...nodes];
+    let newEdges = [...edges];
+
+    switch (command.type) {
+    // CHANGE_NODES, CHANGE_EDGES, NEW_CONNECTION are React Flow's built-in event types.
+    case 'CHANGE_NODES':
+      newNodes = applyNodeChanges(command.payload, newNodes);
+      break;
+    case 'CHANGE_EDGES':
+      newEdges = applyEdgeChanges(command.payload, newEdges);
+      break;
+    case 'NEW_CONNECTION':
+      newEdges = addEdge(command.payload, newEdges);
+      break;
+    case 'ADD_SWIMLANE':
+      newNodes = newNodes.concat(command.payload);
+      break;
+    case 'ADD_BLOCK':
+      newNodes = newNodes.concat(command.payload);
+      newNodes = newNodes.map((node) => {
+        if (node.id === command.payload.parentId) {
+          const currentSwimlaneWidth = node.style?.width || 800;
+          const potentialRightEdge = command.payload.position.x + (command.payload.style?.width || 100) + 20;
+          if (potentialRightEdge > currentSwimlaneWidth) {
+            return {
+              ...node,
+              style: {
+                ...node.style,
+                width: potentialRightEdge,
+              },
+            };
+          }
+        }
+        return node;
+      });
+      break;
+    case 'UPDATE_NODE_LABEL':
+      newNodes = newNodes.map((node) =>
+        node.id === command.payload.nodeId
+          ? { ...node, data: { ...node.data, label: command.payload.label } }
+          : node,
+      );
+      break;
+    default:
+      break;
+  }
+  return {
+    nodes: newNodes,
+    edges: newEdges,
+  };
+}
 
 export const appReducer = (state: AppState, command: IntentionEventType): AppState => {
   if (command.type === 'TIME_TRAVEL') {
@@ -191,52 +203,7 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
     };
   }
 
-  let newNodes = [...state.nodes];
-  let newEdges = [...state.edges];
-
-  switch (command.type) {
-    // CHANGE_NODES, CHANGE_EDGES, NEW_CONNECTION are React Flow's built-in event types.
-    case 'CHANGE_NODES':
-      newNodes = applyNodeChanges(command.payload, newNodes);
-      break;
-    case 'CHANGE_EDGES':
-      newEdges = applyEdgeChanges(command.payload, newEdges);
-      break;
-    case 'NEW_CONNECTION':
-      newEdges = addEdge(command.payload, newEdges);
-      break;
-    case 'ADD_SWIMLANE':
-      newNodes = newNodes.concat(command.payload);
-      break;
-    case 'ADD_BLOCK':
-      newNodes = newNodes.concat(command.payload);
-      newNodes = newNodes.map((node) => {
-        if (node.id === command.payload.parentId) {
-          const currentSwimlaneWidth = node.style?.width || 800;
-          const potentialRightEdge = command.payload.position.x + (command.payload.style?.width || 100) + 20;
-          if (potentialRightEdge > currentSwimlaneWidth) {
-            return {
-              ...node,
-              style: {
-                ...node.style,
-                width: potentialRightEdge,
-              },
-            };
-          }
-        }
-        return node;
-      });
-      break;
-    case 'UPDATE_NODE_LABEL':
-      newNodes = newNodes.map((node) =>
-        node.id === command.payload.nodeId
-          ? { ...node, data: { ...node.data, label: command.payload.label } }
-          : node,
-      );
-      break;
-    default:
-      return state;
-  }
+  const { nodes: newNodes, edges: newEdges } = reduceCanvas(command, state.nodes, state.edges);
 
   const [newEvents, newCurrentEventIndex] = TIME_TRAVELLABLE_EVENTS.includes(command.type)
   ? [state.events.slice(0, state.currentEventIndex + 1).concat(command), state.currentEventIndex + 1]
