@@ -40,6 +40,14 @@ export const validConnectionPatterns: ConnectionPatternValidation[] = [
     pattern: ConnectionPattern.VIEW_PATTERN,
     description: 'Event can be displayed in a View'
   },
+
+  // Automation Pattern connections
+  {
+    sourceNodeTypes: ['event'],
+    targetNodeTypes: ['command'],
+    pattern: ConnectionPattern.AUTOMATION_PATTERN,
+    description: 'Event can automatically trigger a Command'
+  },
 ];
 
 /**
@@ -128,6 +136,16 @@ export const getEdgeStyle = (
       stroke: '#22a355', // Green to match view node
       strokeWidth: 2,
       strokeDasharray: '5,5',
+    };
+  }
+  
+  // Automation Pattern styling - dotted line with orange/purple gradient
+  if (patternType === ConnectionPattern.AUTOMATION_PATTERN) {
+    return {
+      stroke: '#8844cc', // Purple to match command node
+      strokeWidth: 2,
+      strokeDasharray: '2,2',
+      opacity: 0.8,
     };
   }
   

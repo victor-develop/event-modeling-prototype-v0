@@ -32,6 +32,16 @@ describe('Pattern Validation', () => {
       expect(result.valid).toBe(true);
       expect(result.message).toBe('Event can be displayed in a View');
     });
+
+    it('should allow Event -> Command connections (Automation Pattern)', () => {
+      const sourceNode = { id: '1', type: 'event' };
+      const targetNode = { id: '2', type: 'command' };
+      
+      const result = isValidConnection(sourceNode, targetNode);
+      
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe('Event can automatically trigger a Command');
+    });
     
     it('should not allow Trigger -> Event connections', () => {
       const sourceNode = { id: '1', type: 'trigger' };
@@ -84,6 +94,15 @@ describe('Pattern Validation', () => {
         { id: '4', type: 'view' }
       );
       expect(pattern).toBe(ConnectionPattern.VIEW_PATTERN);
+    });
+    
+    it('should identify Automation Pattern connections', () => {
+      // Event -> Command (automation)
+      const pattern = getConnectionPatternType(
+        { id: '3', type: 'event' },
+        { id: '2', type: 'command' }
+      );
+      expect(pattern).toBe(ConnectionPattern.AUTOMATION_PATTERN);
     });
     
     it('should return null for invalid connections', () => {
