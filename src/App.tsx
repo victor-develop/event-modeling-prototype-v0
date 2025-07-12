@@ -340,8 +340,10 @@ const App = () => {
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       // filter out swimlane position changes to prevent swimlanes from being moved
-      const filteredChanges = changes.filter(change => !(change.type === 'position' && nodes.find(node => node.id === change.id)?.type === 'swimlane'));
-      const mappedChanges = filteredChanges.map(change => {
+      const filteredChanges = changes.filter(function prevenSwimlaneMoving(change) {
+        return !(change.type === 'position' && nodes.find(node => node.id === change.id)?.type === 'swimlane');
+      });
+      const mappedChanges = filteredChanges.map(function forceBlocksMoveHorizontal(change) {
         if (change && change.type === 'position' && change.position) {
           const movingNode = nodes.find(node => node.id === change.id);
           if (movingNode && movingNode.type === 'block') {
