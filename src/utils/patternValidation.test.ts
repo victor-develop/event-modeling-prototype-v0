@@ -43,6 +43,23 @@ describe('Pattern Validation', () => {
       expect(result.message).toBe('Event can automatically trigger a Command');
     });
     
+    it('should allow Event -> Command -> Event connections (Automation Chain)', () => {
+      // This test verifies both parts of the automation chain
+      // First part: Event -> Command 
+      const sourceNode1 = { id: '1', type: 'event' };
+      const targetNode1 = { id: '2', type: 'command' };
+      
+      const result1 = isValidConnection(sourceNode1, targetNode1);
+      expect(result1.valid).toBe(true);
+      
+      // Second part: Command -> Event
+      const sourceNode2 = { id: '2', type: 'command' };
+      const targetNode2 = { id: '3', type: 'event' };
+      
+      const result2 = isValidConnection(sourceNode2, targetNode2);
+      expect(result2.valid).toBe(true);
+    });
+    
     it('should not allow Trigger -> Event connections', () => {
       const sourceNode = { id: '1', type: 'trigger' };
       const targetNode = { id: '2', type: 'event' };

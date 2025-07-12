@@ -5,7 +5,6 @@ export const ConnectionPattern = {
   COMMAND_PATTERN: 'command_pattern', // Trigger -> Command -> Event
   VIEW_PATTERN: 'view_pattern', // Event -> View
   AUTOMATION_PATTERN: 'automation_pattern', // Event -> Command
-  TRANSLATION_PATTERN: 'translation_pattern' // Event -> Command -> Event
 } as const;
 
 export type ConnectionPattern = typeof ConnectionPattern[keyof typeof ConnectionPattern];
@@ -101,13 +100,13 @@ export const getConnectionPatternType = (
     return null;
   }
   
-  const sourceType = sourceNode.type;
-  const targetType = targetNode.type;
+  // For Event -> Command connections we have the Automation Pattern
   
+  // Find the first matching pattern for other connections
   const matchingPattern = validConnectionPatterns.find(
     pattern => 
-      pattern.sourceNodeTypes.includes(sourceType || '') &&
-      pattern.targetNodeTypes.includes(targetType || '')
+      pattern.sourceNodeTypes.includes(sourceNode.type || '') &&
+      pattern.targetNodeTypes.includes(targetNode.type || '')
   );
   
   return matchingPattern ? matchingPattern.pattern : null;
@@ -148,6 +147,8 @@ export const getEdgeStyle = (
       opacity: 0.8,
     };
   }
+  
+  // No Translation Pattern anymore
   
   // Default styling
   return {
