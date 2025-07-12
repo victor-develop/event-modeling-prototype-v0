@@ -1,7 +1,6 @@
 import React, { useCallback, useReducer } from 'react';
 import {
   ReactFlow,
-  addEdge,
   MiniMap,
   Controls,
   Background,
@@ -19,6 +18,12 @@ import SwimlaneNode from './components/SwimlaneNode';
 import BlockNode from './components/BlockNode';
 import HistoryPanel from './components/HistoryPanel';
 
+// Import new node types
+import TriggerNode from './components/nodes/TriggerNode';
+import CommandNode from './components/nodes/CommandNode';
+import EventNode from './components/nodes/EventNode';
+import ViewNode from './components/nodes/ViewNode';
+
 // --- Event Sourcing Setup ---
 
 export const EventTypes = {
@@ -30,8 +35,16 @@ export const EventTypes = {
   ModelingEditor: {
     ADD_SWIMLANE: 'ADD_SWIMLANE',
     ADD_BLOCK: 'ADD_BLOCK',
+    ADD_TRIGGER: 'ADD_TRIGGER',
+    ADD_COMMAND: 'ADD_COMMAND',
+    ADD_EVENT: 'ADD_EVENT',
+    ADD_VIEW: 'ADD_VIEW',
     UPDATE_NODE_LABEL: 'UPDATE_NODE_LABEL',
+    UPDATE_COMMAND_PARAMETERS: 'UPDATE_COMMAND_PARAMETERS',
+    UPDATE_EVENT_PAYLOAD: 'UPDATE_EVENT_PAYLOAD',
+    UPDATE_VIEW_SOURCES: 'UPDATE_VIEW_SOURCES',
     MOVE_BLOCK: 'MOVE_BLOCK',
+    MOVE_NODE: 'MOVE_NODE',
   },
   EventSourcing: {
     TIME_TRAVEL: 'TIME_TRAVEL',
@@ -53,8 +66,16 @@ export type ReactFlowNativeEventType =
 export type ModelingEditorEventType =
   | { type: typeof EventTypes.ModelingEditor.ADD_SWIMLANE; payload: any }
   | { type: typeof EventTypes.ModelingEditor.ADD_BLOCK; payload: any }
+  | { type: typeof EventTypes.ModelingEditor.ADD_TRIGGER; payload: any }
+  | { type: typeof EventTypes.ModelingEditor.ADD_COMMAND; payload: any }
+  | { type: typeof EventTypes.ModelingEditor.ADD_EVENT; payload: any }
+  | { type: typeof EventTypes.ModelingEditor.ADD_VIEW; payload: any }
   | { type: typeof EventTypes.ModelingEditor.UPDATE_NODE_LABEL; payload: { nodeId: string; label: string } }
-  | { type: typeof EventTypes.ModelingEditor.MOVE_BLOCK; payload: { nodeId: string; position: { x: number; y: number } } };
+  | { type: typeof EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS; payload: { nodeId: string; parameters: Record<string, string> } }
+  | { type: typeof EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD; payload: { nodeId: string; payload: Record<string, any> } }
+  | { type: typeof EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES; payload: { nodeId: string; sourceEvents: string[] } }
+  | { type: typeof EventTypes.ModelingEditor.MOVE_BLOCK; payload: { nodeId: string; position: { x: number; y: number } } }
+  | { type: typeof EventTypes.ModelingEditor.MOVE_NODE; payload: { nodeId: string; position: { x: number; y: number } } };
 
 export type EventSourcingEventType =
    { type: typeof EventTypes.EventSourcing.TIME_TRAVEL; payload: { index: number } }
@@ -120,51 +141,142 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
       newEdges = applyEdgeChanges(command.payload, newEdges);
       break;
     case EventTypes.ReactFlow.NEW_CONNECTION:
-      newEdges = addEdge({ ...command.payload, markerEnd: { type: 'arrowclosed' } }, newEdges);
+      const connection = command.payload;
+      if (connection.source && connection.target) {
+        const newEdge = {
+          id: `${connection.source}-${connection.target}`,
+          source: connection.source,
+          target: connection.target,
+        };
+        newEdges = [...newEdges, newEdge];
+      }
       break;
+
+    // ADD_SWIMLANE, ADD_BLOCK, UPDATE_NODE_LABEL are specific to our app.
     case EventTypes.ModelingEditor.ADD_SWIMLANE:
-      newNodes = newNodes.concat(command.payload);
+      newNodes = [...newNodes, command.payload];
       break;
     case EventTypes.ModelingEditor.ADD_BLOCK:
-      newNodes = newNodes.concat(command.payload);
-      newNodes = newNodes.map((node) => {
-        if (node.id === command.payload.parentId) {
-          const currentSwimlaneWidth = node.style?.width || 800;
-          const potentialRightEdge = command.payload.position.x + (command.payload.style?.width || 100) + 20;
-          if (potentialRightEdge > currentSwimlaneWidth) {
-            return {
-              ...node,
-              style: {
-                ...node.style,
-                width: potentialRightEdge,
-              },
-            };
+      const block = command.payload;
+      
+      // Automatically adjust parent swimlane width if needed
+      if (block.parentId) {
+        const parentNode = newNodes.find(n => n.id === block.parentId);
+        if (parentNode) {
+          const blockRightEdge = block.position.x + (block.style?.width || 100);
+          const parentRightEdge = parentNode.position.x + (parentNode.style?.width || 0);
+          
+          // If the block extends beyond the parent swimlane, extend the parent
+          if (blockRightEdge + 50 > parentRightEdge) {
+            const updatedNodes = newNodes.map(n => {
+              if (n.id === block.parentId) {
+                return {
+                  ...n,
+                  style: {
+                    ...n.style,
+                    width: blockRightEdge + 50 // Add some padding
+                  }
+                };
+              }
+              return n;
+            });
+            newNodes = updatedNodes;
           }
+        }
+      }
+      
+      newNodes = [...newNodes, block];
+      break;
+      
+    // New node type actions
+    case EventTypes.ModelingEditor.ADD_TRIGGER:
+      newNodes = [...newNodes, command.payload];
+      break;
+    case EventTypes.ModelingEditor.ADD_COMMAND:
+      newNodes = [...newNodes, command.payload];
+      break;
+    case EventTypes.ModelingEditor.ADD_EVENT:
+      newNodes = [...newNodes, command.payload];
+      break;
+    case EventTypes.ModelingEditor.ADD_VIEW:
+      newNodes = [...newNodes, command.payload];
+      break;
+      
+    case EventTypes.ModelingEditor.UPDATE_NODE_LABEL:
+      newNodes = newNodes.map(node => {
+        if (node.id === command.payload.nodeId) {
+          return {
+            ...node,
+            data: { ...node.data, label: command.payload.label }
+          };
         }
         return node;
       });
       break;
-    case EventTypes.ModelingEditor.UPDATE_NODE_LABEL:
-      newNodes = newNodes.map((node) =>
-        node.id === command.payload.nodeId
-          ? { ...node, data: { ...node.data, label: command.payload.label } }
-          : node,
-      );
+      
+    // New property update actions  
+    case EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS:
+      newNodes = newNodes.map(node => {
+        if (node.id === command.payload.nodeId) {
+          return {
+            ...node,
+            data: { ...node.data, parameters: command.payload.parameters }
+          };
+        }
+        return node;
+      });
       break;
+      
+    case EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD:
+      newNodes = newNodes.map(node => {
+        if (node.id === command.payload.nodeId) {
+          return {
+            ...node,
+            data: { ...node.data, payload: command.payload.payload }
+          };
+        }
+        return node;
+      });
+      break;
+      
+    case EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES:
+      newNodes = newNodes.map(node => {
+        if (node.id === command.payload.nodeId) {
+          return {
+            ...node,
+            data: { ...node.data, sourceEvents: command.payload.sourceEvents }
+          };
+        }
+        return node;
+      });
+      break;
+      
     case EventTypes.ModelingEditor.MOVE_BLOCK:
-      newNodes = newNodes.map((node) =>
-        node.id === command.payload.nodeId
-          ? { ...node, position: command.payload.position }
-          : node,
-      );
+      newNodes = newNodes.map(node => {
+        if (node.id === command.payload.nodeId) {
+          return {
+            ...node,
+            position: command.payload.position
+          };
+        }
+        return node;
+      });
       break;
-    default:
+      
+    case EventTypes.ModelingEditor.MOVE_NODE:
+      newNodes = newNodes.map(node => {
+        if (node.id === command.payload.nodeId) {
+          return {
+            ...node,
+            position: command.payload.position
+          };
+        }
+        return node;
+      });
       break;
-  }
-  return {
-    nodes: newNodes,
-    edges: newEdges,
-  };
+    };
+
+    return { nodes: newNodes, edges: newEdges };
 }
 
 export const appReducer = (state: AppState, command: IntentionEventType): AppState => {
@@ -263,24 +375,76 @@ const App = () => {
     dispatch({ type: EventTypes.ReactFlow.CHANGE_EDGES, payload: changes });
   }, [edges]);
 
-  const dispatchNewConnection = useCallback((payload: Connection) => {
-    dispatch({ type: EventTypes.ReactFlow.NEW_CONNECTION, payload });
+  const dispatchNewConnection = useCallback((params: Connection) => {
+    dispatch({ type: EventTypes.ReactFlow.NEW_CONNECTION, payload: params });
   }, []);
 
-  const dispatchAddSwimlane = useCallback((swimlaneData: any) => {
-    dispatch({ type: EventTypes.ModelingEditor.ADD_SWIMLANE, payload: swimlaneData });
+  const dispatchAddSwimlane = useCallback((swimlane: any) => {
+    dispatch({ type: EventTypes.ModelingEditor.ADD_SWIMLANE, payload: swimlane });
   }, []);
 
-  const dispatchAddBlock = useCallback((blockData: any) => {
-    dispatch({ type: EventTypes.ModelingEditor.ADD_BLOCK, payload: blockData });
+  const dispatchAddBlock = useCallback((block: any) => {
+    dispatch({ type: EventTypes.ModelingEditor.ADD_BLOCK, payload: block });
+  }, []);
+
+  // New node type dispatchers
+  const dispatchAddTrigger = useCallback((trigger: any) => {
+    dispatch({ type: EventTypes.ModelingEditor.ADD_TRIGGER, payload: trigger });
+  }, []);
+
+  const dispatchAddCommand = useCallback((command: any) => {
+    dispatch({ type: EventTypes.ModelingEditor.ADD_COMMAND, payload: command });
+  }, []);
+
+  const dispatchAddEvent = useCallback((event: any) => {
+    dispatch({ type: EventTypes.ModelingEditor.ADD_EVENT, payload: event });
+  }, []);
+
+  const dispatchAddView = useCallback((view: any) => {
+    dispatch({ type: EventTypes.ModelingEditor.ADD_VIEW, payload: view });
   }, []);
 
   const dispatchUpdateNodeLabel = useCallback((nodeId: string, label: string) => {
-    dispatch({ type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL, payload: { nodeId, label } });
+    dispatch({
+      type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL,
+      payload: { nodeId, label }
+    });
+  }, []);
+  
+  // New property update dispatchers
+  const dispatchUpdateCommandParameters = useCallback((nodeId: string, parameters: Record<string, string>) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS,
+      payload: { nodeId, parameters }
+    });
   }, []);
 
+  const dispatchUpdateEventPayload = useCallback((nodeId: string, payload: Record<string, any>) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD,
+      payload: { nodeId, payload }
+    });
+  }, []);
+
+  const dispatchUpdateViewSources = useCallback((nodeId: string, sourceEvents: string[]) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES,
+      payload: { nodeId, sourceEvents }
+    });
+  }, []);
+  
   const dispatchMoveBlock = useCallback((nodeId: string, position: { x: number; y: number }) => {
-    dispatch({ type: EventTypes.ModelingEditor.MOVE_BLOCK, payload: { nodeId, position } });
+    dispatch({
+      type: EventTypes.ModelingEditor.MOVE_BLOCK,
+      payload: { nodeId, position }
+    });
+  }, []);
+
+  const dispatchMoveNode = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.MOVE_NODE,
+      payload: { nodeId, position }
+    });
   }, []);
 
   const onTimeTravel = useCallback((index: number) => {
@@ -358,60 +522,135 @@ const App = () => {
     return position;
   };
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      const filteredChanges = changes.filter(change => {
-        if (change.type === 'position') {
-          const node = nodes.find(n => n.id === change.id);
-          return node?.type !== 'swimlane';
-        }
-        return true;
-      });
-
-      const mappedChanges = filteredChanges.map(change => {
-        if (change.type === 'position' && change.position) {
-          return { ...change, position: constrainBlockPosition(change.id, change.position) };
-        }
-        return change;
-      });
-
-      if (mappedChanges.length > 0) {
-        dispatchNodeChanges(mappedChanges);
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const filteredChanges = changes.filter(change => {
+      if (change.type === 'position') {
+        const node = nodes.find(n => n.id === change.id);
+        return node?.type !== 'swimlane';
       }
-    },
-    [dispatchNodeChanges, nodes],
-  );
+      return true;
+    });
+
+    const mappedChanges = filteredChanges.map(change => {
+      if (change.type === 'position' && change.position) {
+        const node = nodes.find(n => n.id === change.id);
+        if (node) {
+          // Apply constraints based on node type
+          if (node.type === 'block') {
+            // Blocks can only move horizontally
+            return { ...change, position: { x: change.position.x, y: node.position.y } };
+          } else if (node.type === 'trigger' || node.type === 'command' || 
+                    node.type === 'event' || node.type === 'view') {
+            // New node types can move freely
+            return change;
+          }
+        }
+      }
+      return change;
+    });
+
+    if (mappedChanges.length > 0) {
+      dispatchNodeChanges(mappedChanges);
+    }
+  }, [dispatchNodeChanges, nodes]);
+
+  // Handle moving specific node types
+  const handleNodeMove = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+      if (node.type === 'block') {
+        dispatchMoveBlock(nodeId, { x: position.x, y: node.position.y });
+      } else if (node.type === 'trigger' || node.type === 'command' || 
+                node.type === 'event' || node.type === 'view') {
+        dispatchMoveNode(nodeId, position);
+      }
+    }
+  }, [nodes, dispatchMoveBlock, dispatchMoveNode]);
 
   const onNodeDragStop = useCallback((_: React.MouseEvent, node: any) => {
-    if (node.type === 'block') {
-      const constrainedPosition = constrainBlockPosition(node.id, node.position);
-      dispatchMoveBlock(node.id, constrainedPosition);
-    }
-  }, [dispatchMoveBlock, nodes]);
+    handleNodeMove(node.id, node.position);
+  }, [handleNodeMove]);
 
-
-  const onAddSwimlane = useCallback(() => {
-    const swimlanes = nodes.filter(node => node.type === 'swimlane');
-    let newY = 50;
-
-    if (swimlanes.length > 0) {
-      const lastSwimlane = swimlanes.reduce((prev, current) => {
-        const prevBottom = prev.position.y + (prev.style?.height || 0);
-        const currentBottom = current.position.y + (current.style?.height || 0);
-        return prevBottom > currentBottom ? prev : current;
-      });
-      newY = (lastSwimlane.position.y || 0) + (lastSwimlane.style?.height || 200) + 20;
-    }
+  // Function to add a new swimlane
+  const addSwimlane = useCallback(() => {
+    const id = nanoid();
+    const swimlaneWidth = 800;
+    const swimlaneHeight = 300;
 
     const newSwimlane = {
-      id: nanoid(),
+      id,
       type: 'swimlane',
-      position: { x: 50, y: newY },
-      data: { label: `Swimlane ${swimlanes.length + 1}` },
-      style: { width: 800, height: 200, backgroundColor: 'rgba(200,200,255,0.2)', border: '1px solid #ccc' },
+      position: { x: 100, y: (nodes.length + 1) * 50 },
+      style: { width: swimlaneWidth, height: swimlaneHeight },
+      data: { label: 'Swimlane ' + (nodes.length + 1) }
     };
+
     dispatchAddSwimlane(newSwimlane);
   }, [nodes, dispatchAddSwimlane]);
+
+  // Function to add a new trigger node
+  const addTrigger = useCallback(() => {
+    const id = nanoid();
+    const newTrigger = {
+      id,
+      type: 'trigger',
+      position: { x: 100, y: 100 },
+      data: { 
+        label: 'New Trigger',
+        triggerType: 'ui' // default trigger type
+      }
+    };
+
+    dispatchAddTrigger(newTrigger);
+  }, [dispatchAddTrigger]);
+
+  // Function to add a new command node
+  const addCommand = useCallback(() => {
+    const id = nanoid();
+    const newCommand = {
+      id,
+      type: 'command',
+      position: { x: 250, y: 100 },
+      data: { 
+        label: 'New Command',
+        parameters: {}
+      }
+    };
+
+    dispatchAddCommand(newCommand);
+  }, [dispatchAddCommand]);
+
+  // Function to add a new event node
+  const addEvent = useCallback(() => {
+    const id = nanoid();
+    const newEvent = {
+      id,
+      type: 'event',
+      position: { x: 400, y: 100 },
+      data: { 
+        label: 'New Event',
+        payload: {}
+      }
+    };
+
+    dispatchAddEvent(newEvent);
+  }, [dispatchAddEvent]);
+
+  // Function to add a new view node
+  const addView = useCallback(() => {
+    const id = nanoid();
+    const newView = {
+      id,
+      type: 'view',
+      position: { x: 550, y: 100 },
+      data: { 
+        label: 'New View',
+        sourceEvents: []
+      }
+    };
+
+    dispatchAddView(newView);
+  }, [dispatchAddView]);
 
   const customNodeTypes = React.useMemo(() => ({
     swimlane: (nodeProps: any) => (
@@ -427,15 +666,47 @@ const App = () => {
         dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
       />
     ),
-  }), [dispatchAddBlock, dispatchUpdateNodeLabel]);
+    // Add new node types
+    trigger: (nodeProps: any) => (
+      <TriggerNode
+        {...nodeProps}
+        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
+      />
+    ),
+    command: (nodeProps: any) => (
+      <CommandNode
+        {...nodeProps}
+        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
+        dispatchUpdateCommandParameters={dispatchUpdateCommandParameters}
+      />
+    ),
+    event: (nodeProps: any) => (
+      <EventNode
+        {...nodeProps}
+        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
+        dispatchUpdateEventPayload={dispatchUpdateEventPayload}
+      />
+    ),
+    view: (nodeProps: any) => (
+      <ViewNode
+        {...nodeProps}
+        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
+        dispatchUpdateViewSources={dispatchUpdateViewSources}
+      />
+    ),
+  }), [dispatchAddBlock, dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Topbar
-        onAddSwimlane={onAddSwimlane}
+        onAddSwimlane={addSwimlane}
+        onAddTrigger={addTrigger}
+        onAddCommand={addCommand}
+        onAddEvent={addEvent}
+        onAddView={addView}
         onExportEvents={onExportEvents}
         onImportEvents={onImportEvents}
-        onCompressSnapshot={onCompressSnapshot} // Pass new handler
+        onCompressSnapshot={onCompressSnapshot}
       />
       <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
         <ReactFlow
