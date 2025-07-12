@@ -25,6 +25,62 @@ This is a React application built with Vite and TypeScript, designed to demonstr
 *   **nanoid:** A tiny, secure, URL-friendly, unique string ID generator.
 *   **Vitest:** A blazing fast unit-test framework powered by Vite.
 
+## Movement Constraint Patterns
+
+The application implements specific movement constraints for different node types using React Flow's change handling system. These patterns ensure that nodes behave according to the event modeling paradigm.
+
+### Movement Restriction Implementation
+
+React Flow exposes "changes" through callbacks like `onNodesChange` and `onEdgesChange`. The application intercepts these changes to enforce specific behaviors:
+
+1. **Swimlane Movement Restriction:**
+   * Swimlanes are prevented from being moved by filtering out position changes for nodes of type `swimlane`
+   * Implementation is in the `onNodesChange` callback where changes are filtered before being applied
+
+```typescript
+const onNodesChange = useCallback(
+  (changes: NodeChange[]) => {
+    // Filter out position changes for swimlane nodes
+    const filteredChanges = changes.filter(change => {
+      if (change.type === 'position') {
+        const node = nodes.find(n => n.id === change.id);
+        return node?.type !== 'swimlane';
+      }
+      return true;
+    });
+    
+    // Apply remaining changes
+    dispatchNodeChanges(filteredChanges);
+  },
+  [dispatchNodeChanges, nodes],
+);
+```
+
+2. **Block Node Horizontal-Only Movement:**
+   * Blocks are constrained to move only horizontally by preserving their original y-position
+   * A `constrainBlockPosition` function is used to enforce this behavior
+
+```typescript
+const constrainBlockPosition = (nodeId: string, position: { x: number; y: number }) => {
+  const node = nodes.find(n => n.id === nodeId);
+  if (node && node.type === 'block') {
+    return { x: position.x, y: node.position.y };
+  }
+  return position;
+};
+```
+
+### Applying Custom Constraints
+
+To implement custom node movement constraints:
+
+1. **Intercept Changes:** Use the `onNodesChange` callback to receive all node change events
+2. **Filter Changes:** Remove unwanted changes based on node type or other criteria
+3. **Transform Changes:** Modify position changes to enforce constraints
+4. **Apply Changes:** Only after filtering/transforming, apply the changes using `dispatchNodeChanges`
+
+This pattern allows for fine-grained control over node behavior while leveraging React Flow's built-in functionality.
+
 ## How to Run
 
 To get this project up and running on your local machine, follow these steps:
