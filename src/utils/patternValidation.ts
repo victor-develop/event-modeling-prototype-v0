@@ -1,4 +1,4 @@
-import type { Node } from '@xyflow/react';
+// No imports needed
 
 // Connection validation types
 export const ConnectionPattern = {
@@ -33,15 +33,30 @@ export const validConnectionPatterns: ConnectionPatternValidation[] = [
     description: 'Command can produce an Event'
   },
   
-  // Will add more patterns in subsequent iterations
+  // View Pattern connections
+  {
+    sourceNodeTypes: ['event'],
+    targetNodeTypes: ['view'],
+    pattern: ConnectionPattern.VIEW_PATTERN,
+    description: 'Event can be displayed in a View'
+  },
 ];
+
+/**
+ * Type for simplified Node objects to make testing easier
+ */
+export type SimpleNode = {
+  id: string;
+  type?: string;
+  [key: string]: any;
+};
 
 /**
  * Checks if a connection is valid according to the defined patterns
  */
 export const isValidConnection = (
-  sourceNode: Node | null,
-  targetNode: Node | null
+  sourceNode: SimpleNode | null,
+  targetNode: SimpleNode | null
 ): { valid: boolean; message: string } => {
   if (!sourceNode || !targetNode) {
     return { valid: false, message: 'Source or target node not found' };
@@ -71,8 +86,8 @@ export const isValidConnection = (
  * Determines the pattern type of a connection
  */
 export const getConnectionPatternType = (
-  sourceNode: Node | null,
-  targetNode: Node | null
+  sourceNode: SimpleNode | null,
+  targetNode: SimpleNode | null
 ): ConnectionPattern | null => {
   if (!sourceNode || !targetNode) {
     return null;
@@ -94,8 +109,8 @@ export const getConnectionPatternType = (
  * Get edge style based on the connection pattern
  */
 export const getEdgeStyle = (
-  sourceNode: Node | null,
-  targetNode: Node | null
+  sourceNode: SimpleNode | null,
+  targetNode: SimpleNode | null
 ): React.CSSProperties => {
   const patternType = getConnectionPatternType(sourceNode, targetNode);
   
@@ -104,6 +119,15 @@ export const getEdgeStyle = (
     return {
       stroke: '#333',
       strokeWidth: 2,
+    };
+  }
+  
+  // View Pattern styling - dashed line to show data flow
+  if (patternType === ConnectionPattern.VIEW_PATTERN) {
+    return {
+      stroke: '#22a355', // Green to match view node
+      strokeWidth: 2,
+      strokeDasharray: '5,5',
     };
   }
   
