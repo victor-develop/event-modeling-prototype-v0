@@ -21,20 +21,38 @@ import HistoryPanel from './components/HistoryPanel';
 
 // --- Event Sourcing Setup ---
 
+const EventTypes = {
+  ReactFlow: {
+    CHANGE_NODES: 'CHANGE_NODES',
+    CHANGE_EDGES: 'CHANGE_EDGES',
+    NEW_CONNECTION: 'NEW_CONNECTION',
+  },
+  ModelingEditor: {
+    ADD_SWIMLANE: 'ADD_SWIMLANE',
+    ADD_BLOCK: 'ADD_BLOCK',
+    UPDATE_NODE_LABEL: 'UPDATE_NODE_LABEL',
+  },
+  EventSourcing: {
+    TIME_TRAVEL: 'TIME_TRAVEL',
+    LOAD_EVENTS: 'LOAD_EVENTS',
+    CREATE_SNAPSHOT: 'CREATE_SNAPSHOT',
+  }
+} as const;
+
 type ReactFlowNativeEventType = 
-  { type: 'CHANGE_NODES'; payload: NodeChange[] }
-  | { type: 'CHANGE_EDGES'; payload: EdgeChange[] }
-  | { type: 'NEW_CONNECTION'; payload: Connection }
+  { type: typeof EventTypes.ReactFlow.CHANGE_NODES; payload: NodeChange[] }
+  | { type: typeof EventTypes.ReactFlow.CHANGE_EDGES; payload: EdgeChange[] }
+  | { type: typeof EventTypes.ReactFlow.NEW_CONNECTION; payload: Connection }
 
 type ModelingEditorEventType =
-  | { type: 'ADD_SWIMLANE'; payload: any }
-  | { type: 'ADD_BLOCK'; payload: any }
-  | { type: 'UPDATE_NODE_LABEL'; payload: { nodeId: string; label: string } };
+  | { type: typeof EventTypes.ModelingEditor.ADD_SWIMLANE; payload: any }
+  | { type: typeof EventTypes.ModelingEditor.ADD_BLOCK; payload: any }
+  | { type: typeof EventTypes.ModelingEditor.UPDATE_NODE_LABEL; payload: { nodeId: string; label: string } };
 
 type EventSourcingEventType =
-   { type: 'TIME_TRAVEL'; payload: { index: number } }
-  | { type: 'LOAD_EVENTS'; payload: IntentionEventType[] }
-  | { type: 'CREATE_SNAPSHOT'; payload: { snapshotNodes: any[]; snapshotEdges: any[]; snapshotIndex: number } }; // New event type
+   { type: typeof EventTypes.EventSourcing.TIME_TRAVEL; payload: { index: number } }
+  | { type: typeof EventTypes.EventSourcing.LOAD_EVENTS; payload: IntentionEventType[] }
+  | { type: typeof EventTypes.EventSourcing.CREATE_SNAPSHOT; payload: { snapshotNodes: any[]; snapshotEdges: any[]; snapshotIndex: number } }; // New event type
 
 type IntentionEventType =
   ReactFlowNativeEventType
@@ -42,10 +60,10 @@ type IntentionEventType =
   | EventSourcingEventType;
 
 const TIME_TRAVELLABLE_EVENTS = [
-  'ADD_SWIMLANE',
-  'ADD_BLOCK',
-  'NEW_CONNECTION',
-  'UPDATE_NODE_LABEL'
+  EventTypes.ModelingEditor.ADD_SWIMLANE,
+  EventTypes.ModelingEditor.ADD_BLOCK,
+  EventTypes.ReactFlow.NEW_CONNECTION,
+  EventTypes.ModelingEditor.UPDATE_NODE_LABEL
 ]
 
 interface AppState {
@@ -93,19 +111,19 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
 
     switch (command.type) {
     // CHANGE_NODES, CHANGE_EDGES, NEW_CONNECTION are React Flow's built-in event types.
-    case 'CHANGE_NODES':
+    case EventTypes.ReactFlow.CHANGE_NODES:
       newNodes = applyNodeChanges(command.payload, newNodes);
       break;
-    case 'CHANGE_EDGES':
+    case EventTypes.ReactFlow.CHANGE_EDGES:
       newEdges = applyEdgeChanges(command.payload, newEdges);
       break;
-    case 'NEW_CONNECTION':
+    case EventTypes.ReactFlow.NEW_CONNECTION:
       newEdges = addEdge(command.payload, newEdges);
       break;
-    case 'ADD_SWIMLANE':
+    case EventTypes.ModelingEditor.ADD_SWIMLANE:
       newNodes = newNodes.concat(command.payload);
       break;
-    case 'ADD_BLOCK':
+    case EventTypes.ModelingEditor.ADD_BLOCK:
       newNodes = newNodes.concat(command.payload);
       newNodes = newNodes.map((node) => {
         if (node.id === command.payload.parentId) {
@@ -124,7 +142,7 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
         return node;
       });
       break;
-    case 'UPDATE_NODE_LABEL':
+    case EventTypes.ModelingEditor.UPDATE_NODE_LABEL:
       newNodes = newNodes.map((node) =>
         node.id === command.payload.nodeId
           ? { ...node, data: { ...node.data, label: command.payload.label } }
@@ -141,7 +159,7 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
 }
 
 export const appReducer = (state: AppState, command: IntentionEventType): AppState => {
-  if (command.type === 'TIME_TRAVEL') {
+  if (command.type === EventTypes.EventSourcing.TIME_TRAVEL) {
     let newNodes: any[] = [];
     let newEdges: any[] = [];
     let startIndex = 0;
@@ -170,7 +188,7 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
     };
   }
 
-  if (command.type === 'LOAD_EVENTS') {
+  if (command.type === EventTypes.EventSourcing.LOAD_EVENTS) {
     const newEvents = command.payload;
     const newCurrentEventIndex = newEvents.length > 0 ? newEvents.length - 1 : -1;
     const { nodes: newNodes, edges: newEdges } = applyEvents(newEvents, newCurrentEventIndex);
@@ -186,7 +204,7 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
     };
   }
 
-  if (command.type === 'CREATE_SNAPSHOT') { // Handle new CREATE_SNAPSHOT type
+  if (command.type === EventTypes.EventSourcing.CREATE_SNAPSHOT) { // Handle new CREATE_SNAPSHOT type
     const { snapshotNodes, snapshotEdges, snapshotIndex } = command.payload;
     const remainingEvents = state.events.slice(snapshotIndex + 1); // Keep events after snapshot
 
@@ -229,31 +247,31 @@ const App = () => {
   const { nodes, edges, events, currentEventIndex } = state;
 
   const dispatchNodeChanges = useCallback((changes: NodeChange[]) => {
-    dispatch({ type: 'CHANGE_NODES', payload: changes });
+    dispatch({ type: EventTypes.ReactFlow.CHANGE_NODES, payload: changes });
   }, [nodes]);
 
   const dispatchEdgeChanges = useCallback((changes: EdgeChange[]) => {
-    dispatch({ type: 'CHANGE_EDGES', payload: changes });
+    dispatch({ type: EventTypes.ReactFlow.CHANGE_EDGES, payload: changes });
   }, [edges]);
 
   const dispatchNewConnection = useCallback((payload: Connection) => {
-    dispatch({ type: 'NEW_CONNECTION', payload });
+    dispatch({ type: EventTypes.ReactFlow.NEW_CONNECTION, payload });
   }, []);
 
   const dispatchAddSwimlane = useCallback((swimlaneData: any) => {
-    dispatch({ type: 'ADD_SWIMLANE', payload: swimlaneData });
+    dispatch({ type: EventTypes.ModelingEditor.ADD_SWIMLANE, payload: swimlaneData });
   }, []);
 
   const dispatchAddBlock = useCallback((blockData: any) => {
-    dispatch({ type: 'ADD_BLOCK', payload: blockData });
+    dispatch({ type: EventTypes.ModelingEditor.ADD_BLOCK, payload: blockData });
   }, []);
 
   const dispatchUpdateNodeLabel = useCallback((nodeId: string, label: string) => {
-    dispatch({ type: 'UPDATE_NODE_LABEL', payload: { nodeId, label } });
+    dispatch({ type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL, payload: { nodeId, label } });
   }, []);
 
   const onTimeTravel = useCallback((index: number) => {
-    dispatch({ type: 'TIME_TRAVEL', payload: { index } });
+    dispatch({ type: EventTypes.EventSourcing.TIME_TRAVEL, payload: { index } });
   }, []);
 
   const onExportEvents = useCallback(() => {
@@ -280,7 +298,7 @@ const App = () => {
         reader.onload = (event) => {
           try {
             const parsedEvents: IntentionEventType[] = JSON.parse(event.target?.result as string);
-            dispatch({ type: 'LOAD_EVENTS', payload: parsedEvents });
+            dispatch({ type: EventTypes.EventSourcing.LOAD_EVENTS, payload: parsedEvents });
           } catch (error) {
             console.error('Failed to parse event log:', error);
             alert('Failed to load events. Please ensure the file is a valid JSON event log.');
@@ -295,7 +313,7 @@ const App = () => {
   const onCompressSnapshot = useCallback(() => {
     // Dispatch CREATE_SNAPSHOT with the current state
     dispatch({
-      type: 'CREATE_SNAPSHOT',
+      type: EventTypes.EventSourcing.CREATE_SNAPSHOT,
       payload: {
         snapshotNodes: nodes,
         snapshotEdges: edges, // Use edges from the current state
@@ -375,7 +393,7 @@ const App = () => {
         onImportEvents={onImportEvents}
         onCompressSnapshot={onCompressSnapshot} // Pass new handler
       />
-      <div style={{ display: 'flex', flexGrow: 1 }}>
+      <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
