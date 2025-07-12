@@ -1,4 +1,4 @@
-import React, { useCallback, useReducer } from 'react';
+import React, { useCallback, useReducer, useMemo } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -8,7 +8,12 @@ import {
   type NodeChange,
   type EdgeChange,
   type Connection,
+  type Edge,
+  type Node,
+  MarkerType,
+  BaseEdge
 } from '@xyflow/react';
+import { isValidConnection, getEdgeStyle } from './utils/patternValidation';
 import { nanoid } from 'nanoid';
 
 import '@xyflow/react/dist/style.css';
@@ -23,6 +28,7 @@ import TriggerNode from './components/nodes/TriggerNode';
 import CommandNode from './components/nodes/CommandNode';
 import EventNode from './components/nodes/EventNode';
 import ViewNode from './components/nodes/ViewNode';
+
 
 // --- Event Sourcing Setup ---
 
@@ -143,10 +149,17 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
     case EventTypes.ReactFlow.NEW_CONNECTION:
       const connection = command.payload;
       if (connection.source && connection.target) {
+        // Cast connection to any to access additional properties we've added
+        const extendedConnection = connection as any;
         const newEdge = {
           id: `${connection.source}-${connection.target}`,
           source: connection.source,
           target: connection.target,
+          animated: extendedConnection.animated || false,
+          style: extendedConnection.style || {},
+          markerEnd: extendedConnection.markerEnd || { type: MarkerType.ArrowClosed },
+          type: 'command-pattern',
+          data: extendedConnection.data || { pattern: 'default' }
         };
         newEdges = [...newEdges, newEdge];
       }
@@ -509,18 +522,30 @@ const App = () => {
 
   const onConnect = useCallback(
     (params: Connection) => {
-      dispatchNewConnection(params);
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const targetNode = nodes.find(n => n.id === params.target);
+      
+      // Validate connection based on Command Pattern rules
+      const validation = isValidConnection(sourceNode || null, targetNode || null);
+      
+      if (validation.valid) {
+        // Cast params to any to allow adding custom properties
+        const enhancedParams = { 
+          ...params,
+          // Add additional properties needed for our custom edges
+          data: { pattern: 'command_pattern' }
+        };
+        
+        dispatchNewConnection(enhancedParams as Connection);
+      } else {
+        console.warn(validation.message);
+        // Could show toast notification here for invalid connections
+      }
     },
-    [dispatchNewConnection],
+    [dispatchNewConnection, nodes],
   );
 
-  const constrainBlockPosition = (nodeId: string, position: { x: number; y: number }) => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (node && node.type === 'block') {
-      return { x: position.x, y: node.position.y };
-    }
-    return position;
-  };
+
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     const filteredChanges = changes.filter(change => {
@@ -696,6 +721,25 @@ const App = () => {
     ),
   }), [dispatchAddBlock, dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources]);
 
+  // Define custom edge types with appropriate styling
+  const edgeTypes = useMemo(() => ({
+    'command-pattern': ({ id, source, target, markerEnd }: Edge) => {
+      const sourceNode = nodes.find(n => n.id === source);
+      const targetNode = nodes.find(n => n.id === target);
+      const edgeStyle = getEdgeStyle(sourceNode || null, targetNode || null);
+      
+      return (
+        <BaseEdge
+          id={id}
+          source={source}
+          target={target}
+          style={edgeStyle}
+          markerEnd={markerEnd}
+        />
+      );
+    },
+  }), [nodes]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Topbar
@@ -712,14 +756,19 @@ const App = () => {
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          defaultEdgeOptions={{
+            animated: false,
+            markerEnd: { type: MarkerType.ArrowClosed },
+            type: 'command-pattern'
+          }}
           onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
           onNodeDragStop={onNodeDragStop}
+          onEdgesChange={onEdgesChange}
+          edgeTypes={edgeTypes}
+          onConnect={onConnect}
           fitView
           attributionPosition="top-right"
           nodeTypes={customNodeTypes}
-          edgeTypes={edgeTypes}
           style={{ flexGrow: 1 }}
         >
           <MiniMap zoomable pannable nodeClassName={nodeClassName} />
