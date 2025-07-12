@@ -341,7 +341,22 @@ const App = () => {
     (changes: NodeChange[]) => {
       // filter out swimlane position changes to prevent swimlanes from being moved
       const filteredChanges = changes.filter(change => !(change.type === 'position' && nodes.find(node => node.id === change.id)?.type === 'swimlane'));
-      filteredChanges.length > 0 && dispatchNodeChanges(filteredChanges);
+      const mappedChanges = filteredChanges.map(change => {
+        if (change && change.type === 'position' && change.position) {
+          const movingNode = nodes.find(node => node.id === change.id);
+          if (movingNode && movingNode.type === 'block') {
+          return {
+            ...change,
+            position: {
+              x: change.position.x, 
+              y: movingNode.position.y, // Keep the y position of blocks fixed to their swimlane
+            },
+          }
+        }}
+        return  change;
+      })
+      // Dispatch only if there are changes to nodes
+      mappedChanges.length > 0 && dispatchNodeChanges(mappedChanges);
     },
     [dispatchNodeChanges],
   );
