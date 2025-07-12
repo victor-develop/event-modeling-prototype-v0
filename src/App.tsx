@@ -21,7 +21,7 @@ import HistoryPanel from './components/HistoryPanel';
 
 // --- Event Sourcing Setup ---
 
-const EventTypes = {
+export const EventTypes = {
   ReactFlow: {
     CHANGE_NODES: 'CHANGE_NODES',
     CHANGE_EDGES: 'CHANGE_EDGES',
@@ -31,6 +31,7 @@ const EventTypes = {
     ADD_SWIMLANE: 'ADD_SWIMLANE',
     ADD_BLOCK: 'ADD_BLOCK',
     UPDATE_NODE_LABEL: 'UPDATE_NODE_LABEL',
+    MOVE_BLOCK: 'MOVE_BLOCK',
   },
   EventSourcing: {
     TIME_TRAVEL: 'TIME_TRAVEL',
@@ -39,32 +40,28 @@ const EventTypes = {
   }
 } as const;
 
-type ReactFlowNativeEventType = 
+export type ReactFlowNativeEventType = 
   { type: typeof EventTypes.ReactFlow.CHANGE_NODES; payload: NodeChange[] }
   | { type: typeof EventTypes.ReactFlow.CHANGE_EDGES; payload: EdgeChange[] }
   | { type: typeof EventTypes.ReactFlow.NEW_CONNECTION; payload: Connection }
 
-type ModelingEditorEventType =
+export type ModelingEditorEventType =
   | { type: typeof EventTypes.ModelingEditor.ADD_SWIMLANE; payload: any }
   | { type: typeof EventTypes.ModelingEditor.ADD_BLOCK; payload: any }
-  | { type: typeof EventTypes.ModelingEditor.UPDATE_NODE_LABEL; payload: { nodeId: string; label: string } };
+  | { type: typeof EventTypes.ModelingEditor.UPDATE_NODE_LABEL; payload: { nodeId: string; label: string } }
+  | { type: typeof EventTypes.ModelingEditor.MOVE_BLOCK; payload: { nodeId: string; position: { x: number; y: number } } };
 
-type EventSourcingEventType =
+export type EventSourcingEventType =
    { type: typeof EventTypes.EventSourcing.TIME_TRAVEL; payload: { index: number } }
   | { type: typeof EventTypes.EventSourcing.LOAD_EVENTS; payload: IntentionEventType[] }
   | { type: typeof EventTypes.EventSourcing.CREATE_SNAPSHOT; payload: { snapshotNodes: any[]; snapshotEdges: any[]; snapshotIndex: number } }; // New event type
 
-type IntentionEventType =
+export type IntentionEventType =
   ReactFlowNativeEventType
   | ModelingEditorEventType
   | EventSourcingEventType;
 
-const TIME_TRAVELLABLE_EVENTS = [
-  EventTypes.ModelingEditor.ADD_SWIMLANE,
-  EventTypes.ModelingEditor.ADD_BLOCK,
-  EventTypes.ReactFlow.NEW_CONNECTION,
-  EventTypes.ModelingEditor.UPDATE_NODE_LABEL
-]
+
 
 interface AppState {
   nodes: any[];
@@ -149,6 +146,13 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
           : node,
       );
       break;
+    case EventTypes.ModelingEditor.MOVE_BLOCK:
+      newNodes = newNodes.map((node) =>
+        node.id === command.payload.nodeId
+          ? { ...node, position: command.payload.position }
+          : node,
+      );
+      break;
     default:
       break;
   }
@@ -222,7 +226,7 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
 
   const { nodes: newNodes, edges: newEdges } = reduceCanvas(command, state.nodes, state.edges);
 
-  const [newEvents, newCurrentEventIndex] = TIME_TRAVELLABLE_EVENTS.includes(command.type)
+  const [newEvents, newCurrentEventIndex] = Object.values(EventTypes.ModelingEditor).includes(command.type as any)
   ? [state.events.slice(0, state.currentEventIndex + 1).concat(command), state.currentEventIndex + 1]
   : [state.events, state.currentEventIndex];
 
@@ -268,6 +272,10 @@ const App = () => {
 
   const dispatchUpdateNodeLabel = useCallback((nodeId: string, label: string) => {
     dispatch({ type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL, payload: { nodeId, label } });
+  }, []);
+
+  const dispatchMoveBlock = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    dispatch({ type: EventTypes.ModelingEditor.MOVE_BLOCK, payload: { nodeId, position } });
   }, []);
 
   const onTimeTravel = useCallback((index: number) => {
@@ -337,7 +345,7 @@ const App = () => {
     [dispatchNewConnection],
   );
 
-  const onNodesChange = useCallback(
+ const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       // filter out swimlane position changes to prevent swimlanes from being moved
       const filteredChanges = changes.filter(function prevenSwimlaneMoving(change) {
@@ -362,6 +370,13 @@ const App = () => {
     },
     [dispatchNodeChanges],
   );
+
+  const onNodeDragStop = useCallback((_: React.MouseEvent, node: any) => {
+    if (node.type === 'block') {
+      dispatchMoveBlock(node.id, node.position);
+    }
+  }, [dispatchMoveBlock]);
+
 
   const onAddSwimlane = useCallback(() => {
     const swimlanes = nodes.filter(node => node.type === 'swimlane');
@@ -417,6 +432,7 @@ const App = () => {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeDragStop={onNodeDragStop}
           fitView
           attributionPosition="top-right"
           nodeTypes={customNodeTypes}

@@ -14,7 +14,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
   currentEventIndex,
   onTimeTravel,
   snapshotNodes, // Destructure new prop
-  snapshotEdges, // Destructure new prop
 }) => {
   const handlePrev = useCallback(() => {
     if (currentEventIndex > -1) { // Allow going back to -1 (snapshot)
