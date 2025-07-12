@@ -25,61 +25,156 @@ This is a React application built with Vite and TypeScript, designed to demonstr
 *   **nanoid:** A tiny, secure, URL-friendly, unique string ID generator.
 *   **Vitest:** A blazing fast unit-test framework powered by Vite.
 
-## Movement Constraint Patterns
+## React Flow Change Interception Patterns
 
-The application implements specific movement constraints for different node types using React Flow's change handling system. These patterns ensure that nodes behave according to the event modeling paradigm.
+The application implements specific constraints and behaviors using React Flow's change handling system. This pattern enables fine-grained control over how nodes and edges behave in the diagram.
 
-### Movement Restriction Implementation
+### Understanding Change Types
 
-React Flow exposes "changes" through callbacks like `onNodesChange` and `onEdgesChange`. The application intercepts these changes to enforce specific behaviors:
+React Flow exposes different types of changes through callbacks like `onNodesChange` and `onEdgesChange`. These changes can be intercepted, filtered, modified, or blocked before being applied to the state:
 
-1. **Swimlane Movement Restriction:**
+#### Node Change Types
+
+- **`position`**: When nodes are moved (contains `position`, `positionAbsolute`, and `dragging` properties)
+- **`dimensions`**: When nodes are resized (contains `dimensions`, `resizing`, and `setAttributes` properties)
+- **`select`**: When nodes are selected/deselected (contains `selected` property)
+- **`remove`**: When nodes are deleted
+- **`add`**: When new nodes are added (contains the entire node object as `item`)
+- **`replace`**: When nodes are replaced with new versions (contains `id` and `item`)
+
+#### Edge Change Types
+
+- **`select`**: When edges are selected/deselected (contains `selected` property)
+- **`remove`**: When edges are deleted
+- **`add`**: When new edges are added (contains the entire edge object as `item`)
+- **`replace`**: When edges are replaced with new versions (contains `id` and `item`)
+
+### Implementing Change Interception
+
+The application uses several patterns to intercept and control node and edge changes:
+
+1. **Node & Edge Changes Restrictions:**
    * Swimlanes are prevented from being moved by filtering out position changes for nodes of type `swimlane`
-   * Implementation is in the `onNodesChange` callback where changes are filtered before being applied
+   * Block nodes are constrained to move only horizontally by preserving their original y-position
 
+Here's how different change types can be handled:
 ```typescript
 const onNodesChange = useCallback(
   (changes: NodeChange[]) => {
-    // Filter out position changes for swimlane nodes
-    const filteredChanges = changes.filter(change => {
-      if (change.type === 'position') {
-        const node = nodes.find(n => n.id === change.id);
-        return node?.type !== 'swimlane';
+    // Process each change based on its type
+    const processedChanges = changes.map(change => {
+      // Handle different change types
+      switch (change.type) {
+        case 'position':
+          // Prevent swimlane movement
+          const node = nodes.find(n => n.id === change.id);
+          if (node?.type === 'swimlane') {
+            // Return null to filter this change out later
+            return null;
+          }
+          
+          // Constrain block nodes to horizontal movement only
+          if (node?.type === 'block' && change.position) {
+            return {
+              ...change,
+              position: { x: change.position.x, y: node.position.y }
+            };
+          }
+          break;
+          
+        case 'select':
+          // Example: Prevent selection of certain node types
+          const selectNode = nodes.find(n => n.id === change.id);
+          if (selectNode?.type === 'special-node' && change.selected) {
+            return null; // Prevent selection of special nodes
+          }
+          break;
+          
+        case 'remove':
+          // Example: Prevent deletion of locked nodes
+          const removeNode = nodes.find(n => n.id === change.id);
+          if (removeNode?.data?.locked) {
+            return null; // Prevent removal of locked nodes
+          }
+          break;
+          
+        case 'add':
+          // Example: Modify properties of newly added nodes
+          if (change.item.type === 'block') {
+            return {
+              ...change,
+              item: {
+                ...change.item,
+                data: { ...change.item.data, initialized: true }
+              }
+            };
+          }
+          break;
       }
-      return true;
-    });
+      return change;
+    }).filter(Boolean); // Remove null entries (changes we want to block)
     
-    // Apply remaining changes
-    dispatchNodeChanges(filteredChanges);
+    // Apply the filtered and transformed changes
+    if (processedChanges.length > 0) {
+      dispatchNodeChanges(processedChanges);
+    }
   },
   [dispatchNodeChanges, nodes],
 );
 ```
 
-2. **Block Node Horizontal-Only Movement:**
-   * Blocks are constrained to move only horizontally by preserving their original y-position
-   * A `constrainBlockPosition` function is used to enforce this behavior
+Similarly for edges, we can implement a comprehensive `onEdgesChange` handler:
 
 ```typescript
-const constrainBlockPosition = (nodeId: string, position: { x: number; y: number }) => {
-  const node = nodes.find(n => n.id === nodeId);
-  if (node && node.type === 'block') {
-    return { x: position.x, y: node.position.y };
-  }
-  return position;
-};
+const onEdgesChange = useCallback(
+  (changes: EdgeChange[]) => {
+    const processedChanges = changes.map(change => {
+      switch (change.type) {
+        case 'select':
+          // Example: Log edge selections for analytics
+          console.log('Edge selected:', change.id, change.selected);
+          break;
+          
+        case 'remove':
+          // Example: Prevent deletion of critical connections
+          const edge = edges.find(e => e.id === change.id);
+          if (edge?.data?.critical) {
+            return null; // Block deletion of critical edges
+          }
+          break;
+          
+        case 'add':
+          // Example: Modify properties of newly added edges
+          return {
+            ...change,
+            item: {
+              ...change.item,
+              animated: true, // Make all new edges animated
+              style: { stroke: '#ff0000' } // Style new edges
+            }
+          };
+      }
+      return change;
+    }).filter(Boolean); // Remove null entries
+    
+    if (processedChanges.length > 0) {
+      dispatchEdgeChanges(processedChanges);
+    }
+  },
+  [dispatchEdgeChanges, edges],
+);
 ```
 
-### Applying Custom Constraints
+### Best Practices for Change Interception
 
-To implement custom node movement constraints:
+1. **Handle All Change Types:** Be aware of all possible change types and handle them appropriately
+2. **Filter Changes:** Remove unwanted changes by returning `null` or filtering the array
+3. **Transform Changes:** Modify changes by creating new objects with altered properties
+4. **Preserve Immutability:** Always create new objects when modifying changes
+5. **Optimize Performance:** Only process necessary changes and avoid expensive operations
+6. **Apply Changes:** Use the appropriate dispatch function after processing
 
-1. **Intercept Changes:** Use the `onNodesChange` callback to receive all node change events
-2. **Filter Changes:** Remove unwanted changes based on node type or other criteria
-3. **Transform Changes:** Modify position changes to enforce constraints
-4. **Apply Changes:** Only after filtering/transforming, apply the changes using `dispatchNodeChanges`
-
-This pattern allows for fine-grained control over node behavior while leveraging React Flow's built-in functionality.
+This pattern provides complete control over React Flow's behavior while maintaining a clean architecture that separates concerns.
 
 ## How to Run
 
