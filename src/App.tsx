@@ -345,37 +345,44 @@ const App = () => {
     [dispatchNewConnection],
   );
 
- const onNodesChange = useCallback(
+  const constrainBlockPosition = (nodeId: string, position: { x: number; y: number }) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && node.type === 'block') {
+      return { x: position.x, y: node.position.y };
+    }
+    return position;
+  };
+
+  const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      // filter out swimlane position changes to prevent swimlanes from being moved
-      const filteredChanges = changes.filter(function prevenSwimlaneMoving(change) {
-        return !(change.type === 'position' && nodes.find(node => node.id === change.id)?.type === 'swimlane');
+      const filteredChanges = changes.filter(change => {
+        if (change.type === 'position') {
+          const node = nodes.find(n => n.id === change.id);
+          return node?.type !== 'swimlane';
+        }
+        return true;
       });
-      const mappedChanges = filteredChanges.map(function forceBlocksMoveHorizontal(change) {
-        if (change && change.type === 'position' && change.position) {
-          const movingNode = nodes.find(node => node.id === change.id);
-          if (movingNode && movingNode.type === 'block') {
-          return {
-            ...change,
-            position: {
-              x: change.position.x, 
-              y: movingNode.position.y, // Keep the y position of blocks fixed to their swimlane
-            },
-          }
-        }}
-        return  change;
-      })
-      // Dispatch only if there are changes to nodes
-      mappedChanges.length > 0 && dispatchNodeChanges(mappedChanges);
+
+      const mappedChanges = filteredChanges.map(change => {
+        if (change.type === 'position' && change.position) {
+          return { ...change, position: constrainBlockPosition(change.id, change.position) };
+        }
+        return change;
+      });
+
+      if (mappedChanges.length > 0) {
+        dispatchNodeChanges(mappedChanges);
+      }
     },
-    [dispatchNodeChanges],
+    [dispatchNodeChanges, nodes],
   );
 
   const onNodeDragStop = useCallback((_: React.MouseEvent, node: any) => {
     if (node.type === 'block') {
-      dispatchMoveBlock(node.id, node.position);
+      const constrainedPosition = constrainBlockPosition(node.id, node.position);
+      dispatchMoveBlock(node.id, constrainedPosition);
     }
-  }, [dispatchMoveBlock]);
+  }, [dispatchMoveBlock, nodes]);
 
 
   const onAddSwimlane = useCallback(() => {
