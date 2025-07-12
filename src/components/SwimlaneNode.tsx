@@ -20,17 +20,24 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
 }) => {
   const { getNodes } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
+  const [label, setLabel] = useState(data.label);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
+    if (!isEditing) {
+      setLabel(data.label);
+    }
+  }, [data.label, isEditing]);
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
     }
   }, [isEditing]);
 
   const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
-    dispatchUpdateNodeLabel(id, evt.target.value);
-  }, [id, dispatchUpdateNodeLabel]);
+    setLabel(evt.target.value);
+  }, []);
 
   const onAddBlock = useCallback(() => {
     const parentNode = getNodes().find((node) => node.id === id);
@@ -77,13 +84,15 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
 
   const handleBlur = useCallback(() => {
     setIsEditing(false);
-  }, []);
+    dispatchUpdateNodeLabel(id, label);
+  }, [id, label, dispatchUpdateNodeLabel]);
 
   const handleKeyDown = useCallback((evt: React.KeyboardEvent<HTMLInputElement>) => {
     if (evt.key === 'Enter') {
       setIsEditing(false);
+      dispatchUpdateNodeLabel(id, label);
     }
-  }, []);
+  }, [id, label, dispatchUpdateNodeLabel]);
 
   return (
     <div
@@ -102,7 +111,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
         <input
           ref={inputRef}
           type="text"
-          value={data.label}
+          value={label}
           onChange={onLabelChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}

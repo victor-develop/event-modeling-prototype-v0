@@ -15,18 +15,25 @@ const BlockNode: React.FC<BlockNodeProps> = ({
 }) => {
   const { } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
+  const [label, setLabel] = useState(data.label);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setLabel(data.label);
+    }
+  }, [data.label, isEditing]);
 
   // Focus the input when entering edit mode
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
+    if (isEditing) {
+      inputRef.current?.focus();
     }
   }, [isEditing]);
 
   const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
-    dispatchUpdateNodeLabel(id, evt.target.value); // Dispatch UPDATE_NODE_LABEL event
-  }, [id, dispatchUpdateNodeLabel]);
+    setLabel(evt.target.value);
+  }, []);
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -34,13 +41,15 @@ const BlockNode: React.FC<BlockNodeProps> = ({
 
   const handleBlur = useCallback(() => {
     setIsEditing(false);
-  }, []);
+    dispatchUpdateNodeLabel(id, label);
+  }, [id, label, dispatchUpdateNodeLabel]);
 
   const handleKeyDown = useCallback((evt: React.KeyboardEvent<HTMLInputElement>) => {
     if (evt.key === 'Enter') {
       setIsEditing(false);
+      dispatchUpdateNodeLabel(id, label);
     }
-  }, []);
+  }, [id, label, dispatchUpdateNodeLabel]);
 
   return (
     <div
@@ -59,7 +68,7 @@ const BlockNode: React.FC<BlockNodeProps> = ({
         <input
           ref={inputRef}
           type="text"
-          value={data.label}
+          value={label}
           onChange={onLabelChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
