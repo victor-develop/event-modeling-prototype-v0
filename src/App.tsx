@@ -118,7 +118,7 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
       newEdges = applyEdgeChanges(command.payload, newEdges);
       break;
     case EventTypes.ReactFlow.NEW_CONNECTION:
-      newEdges = addEdge(command.payload, newEdges);
+      newEdges = addEdge({ ...command.payload, markerEnd: { type: 'arrowclosed' } }, newEdges);
       break;
     case EventTypes.ModelingEditor.ADD_SWIMLANE:
       newNodes = newNodes.concat(command.payload);
