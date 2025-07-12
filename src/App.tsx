@@ -40,6 +40,11 @@ export const EventTypes = {
   }
 } as const;
 
+export const TIME_TRAVELLABLE_EVENTS = [
+  EventTypes.ReactFlow.NEW_CONNECTION,
+  ...Object.values(EventTypes.ModelingEditor),
+];
+
 export type ReactFlowNativeEventType = 
   { type: typeof EventTypes.ReactFlow.CHANGE_NODES; payload: NodeChange[] }
   | { type: typeof EventTypes.ReactFlow.CHANGE_EDGES; payload: EdgeChange[] }
@@ -226,7 +231,7 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
 
   const { nodes: newNodes, edges: newEdges } = reduceCanvas(command, state.nodes, state.edges);
 
-  const [newEvents, newCurrentEventIndex] = Object.values(EventTypes.ModelingEditor).includes(command.type as any)
+  const [newEvents, newCurrentEventIndex] = TIME_TRAVELLABLE_EVENTS.includes(command.type as any)
   ? [state.events.slice(0, state.currentEventIndex + 1).concat(command), state.currentEventIndex + 1]
   : [state.events, state.currentEventIndex];
 
