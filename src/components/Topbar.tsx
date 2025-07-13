@@ -9,6 +9,7 @@ interface TopbarProps {
   onExportEvents: () => void;
   onImportEvents: () => void;
   onCompressSnapshot: () => void;
+  onImportModelState?: () => void; // Optional new prop for direct model state import
 }
 
 const Topbar: React.FC<TopbarProps> = ({ 
@@ -19,7 +20,8 @@ const Topbar: React.FC<TopbarProps> = ({
   onAddView,
   onExportEvents, 
   onImportEvents, 
-  onCompressSnapshot 
+  onCompressSnapshot,
+  onImportModelState
 }) => {
   return (
     <div
@@ -57,16 +59,21 @@ const Topbar: React.FC<TopbarProps> = ({
         </div>
 
         <div>
-          <span style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Tools</span>
+          <span style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Model Tools</span>
           <button onClick={onExportEvents} style={{ marginRight: '5px' }}>
-            Export Events
+            Export Model
           </button>
           <button onClick={onImportEvents} style={{ marginRight: '5px' }}>
-            Import Events
+            Import Model
           </button>
-          <button onClick={onCompressSnapshot}>
+          <button onClick={onCompressSnapshot} style={{ marginRight: '5px' }}>
             Compress Snapshot
           </button>
+          {onImportModelState && (
+            <button onClick={onImportModelState} title="For advanced use cases">
+              Import JSON State
+            </button>
+          )}
         </div>
       </div>
       <h2 style={{ margin: 0 }}>Event Modeling App</h2>

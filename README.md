@@ -4,13 +4,38 @@ This is a React application built with Vite and TypeScript, designed to demonstr
 
 ## Key Features
 
-*   **Interactive Event Modeling:** Create and manipulate event models using swimlanes and blocks, representing different stages and actions in a process.
+### Core Features
+
+*   **Interactive Event Modeling:** Create and manipulate event models using the four core building blocks (Trigger, Command, Event, View) following the EventModeling.org methodology.
 *   **Time-Traveling with Event Sourcing Principles:**
-    *   All changes to the diagram (adding swimlanes/blocks, moving nodes, updating labels) are recorded as a sequence of immutable events.
+    *   All changes to the diagram are recorded as a sequence of immutable events.
     *   The application's state can be reconstructed by replaying these events from the beginning up to any point in time, enabling powerful undo/redo and historical inspection.
-*   **Export/Import Event Log:**
-    *   **Export:** Save the entire event history as a JSON file, allowing you to persist your work or share event models.
-    *   **Import:** Load a previously exported event log, clearing the current state and replaying the imported events to reconstruct the diagram.
+
+### Pattern Support
+
+*   **Command Pattern:** Create and validate Trigger → Command → Event patterns.
+*   **View Pattern:** Connect events to views for displaying event data.
+*   **Automation Pattern:** Implement Event → Command → Event chains for automated processes.
+*   **Enhanced Validations:** Real-time validation of pattern completeness and correctness.
+
+### Data Management
+
+*   **Enhanced Export/Import:**
+    *   **Export Full Model:** Save the entire model state including nodes, edges, events, and metadata.
+    *   **Import Model:** Load a previously exported model with support for both legacy and new formats.
+    *   **Advanced Import:** Direct JSON state import for advanced users and tooling integration.
+*   **Model Statistics:** Track and display comprehensive model statistics and pattern completion rates.
+### User Experience
+
+*   **Enhanced History Panel:**
+    *   Tabbed interface for history navigation, pattern analysis, and detailed inspection.
+    *   Visual indicators for pattern types and completeness.
+    *   Detailed property inspection for nodes and edges.
+*   **Validation Panel:**
+    *   Real-time validation feedback for model correctness.
+    *   Highlighting of disconnected nodes and incomplete patterns.
+    *   Interactive error and warning messages with element selection.
+    *   Model statistics and pattern completion visualization.
 *   **Compress Snapshot:**
     *   Optimize storage and performance by creating a "snapshot" of the current diagram state.
     *   When a snapshot is taken, all events leading up to that point are effectively "compressed" and removed from the active event log.
@@ -19,11 +44,36 @@ This is a React application built with Vite and TypeScript, designed to demonstr
 ## Technologies Used
 
 *   **React:** A JavaScript library for building user interfaces.
-*   **TypeScript:** A typed superset of JavaScript that compiles to plain JavaScript.
+*   **TypeScript:** A typed superset of JavaScript that compiles to plain JavaScript with robust type safety.
 *   **Vite:** A fast build tool that provides a lightning-fast development experience.
 *   **@xyflow/react:** A powerful library for building interactive node-based editors and diagrams.
 *   **nanoid:** A tiny, secure, URL-friendly, unique string ID generator.
 *   **Vitest:** A blazing fast unit-test framework powered by Vite.
+
+## Event Modeling Concepts
+
+### Building Blocks
+
+1. **Trigger** - External inputs that initiate processes (user actions, time-based events, external system events)
+2. **Command** - Instructions to perform actions or make changes to the system
+3. **Event** - Facts about what has happened in the system, the source of truth
+4. **View** - Representations of data derived from events
+
+### Patterns
+
+1. **Command Pattern** (Trigger → Command → Event)
+   - How user actions or external triggers result in system changes
+   - Example: User clicks submit (Trigger) → Submit Form (Command) → Form Submitted (Event)
+
+2. **View Pattern** (Event → View)
+   - How system state is presented to users
+   - Example: Order Placed (Event) → Order List (View)
+
+3. **Automation Pattern** (Event → Command → Event)
+   - How events can trigger automatic processes
+   - Example: Order Placed (Event) → Ship Order (Command) → Order Shipped (Event)
+
+For more information on Event Modeling, visit [eventmodeling.org](https://eventmodeling.org/posts/event-modeling-cheatsheet/).
 
 ## React Flow Change Interception Patterns
 
@@ -198,8 +248,34 @@ To get this project up and running on your local machine, follow these steps:
     ```
     This will start the Vite development server, and you can access the application in your browser, usually at `http://localhost:5173`.
 
-4.  **Run tests (Optional):**
+4.  **Run tests:**
     ```bash
-    npm run test
+    npm test -- --run
     ```
-    This will execute the unit tests using Vitest.
+    This will execute all unit tests in non-interactive mode using Vitest.
+
+## Usage Guide
+
+### Creating a Model
+
+1. Use the Topbar buttons to add building blocks (Trigger, Command, Event, View)
+2. Connect nodes by clicking and dragging from connection points
+3. Observe real-time validation feedback in the Validation Panel
+
+### Working with Patterns
+
+1. **Command Pattern:** Connect a Trigger to a Command, then connect the Command to an Event
+2. **View Pattern:** Connect an Event to a View
+3. **Automation Pattern:** Connect an Event to a Command, then connect the Command to another Event
+
+### Importing and Exporting
+
+1. Click "Export Model" to save your complete model
+2. Click "Import Model" to load a previously saved model
+3. Advanced users can use "Import JSON" for direct model state import
+
+### History and Time Travel
+
+1. Use the History panel to navigate through previous states
+2. View pattern statistics and details in the respective tabs
+3. Select nodes or edges to inspect their detailed properties

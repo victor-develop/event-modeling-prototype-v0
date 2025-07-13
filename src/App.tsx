@@ -1,4 +1,4 @@
-import React, { useCallback, useReducer, useMemo } from 'react';
+import React, { useCallback, useReducer, useMemo, useState } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -9,11 +9,17 @@ import {
   type EdgeChange,
   type Connection,
   type Edge,
-  type Node,
   MarkerType,
   BaseEdge
 } from '@xyflow/react';
-import { isValidConnection, getEdgeStyle } from './utils/patternValidation';
+import { isValidConnection, getEdgeStyle, ConnectionPattern, getConnectionPatternType } from './utils/patternValidation';
+// Import our enhanced types
+import type {
+  EventModelingNode,
+  TriggerNodeData, CommandNodeData, EventNodeData, ViewNodeData
+} from './types/nodeTypes';
+import type { EventModelingEdge } from './types/edgeTypes';
+import { EdgePriority } from './types/edgeTypes';
 import { nanoid } from 'nanoid';
 
 import '@xyflow/react/dist/style.css';
@@ -22,6 +28,8 @@ import Topbar from './components/Topbar';
 import SwimlaneNode from './components/SwimlaneNode';
 import BlockNode from './components/BlockNode';
 import HistoryPanel from './components/HistoryPanel';
+import ValidationPanel from './components/ValidationPanel';
+import WelcomeGuide from './components/WelcomeGuide';
 
 // Import new node types
 import TriggerNode from './components/nodes/TriggerNode';
@@ -378,19 +386,79 @@ const nodeClassName = (node: any) => node.type;
 
 const App = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [showWelcomeGuide, setShowWelcomeGuide] = useState(() => {
+    // Check if the user has seen the welcome guide before
+    const hasSeenGuide = localStorage.getItem('hasSeenWelcomeGuide');
+    return hasSeenGuide !== 'true';
+  });
+  
+  // Handle closing the welcome guide
+  const handleWelcomeGuideClose = () => {
+    setShowWelcomeGuide(false);
+    localStorage.setItem('hasSeenWelcomeGuide', 'true');
+  };
+  
+  // Track selected node and edge for the enhanced HistoryPanel
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = React.useState<string | null>(null);
   const { nodes, edges, events, currentEventIndex } = state;
 
   const dispatchNodeChanges = useCallback((changes: NodeChange[]) => {
     dispatch({ type: EventTypes.ReactFlow.CHANGE_NODES, payload: changes });
   }, [nodes]);
 
-  const dispatchEdgeChanges = useCallback((changes: EdgeChange[]) => {
-    dispatch({ type: EventTypes.ReactFlow.CHANGE_EDGES, payload: changes });
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    // Track edge selection for HistoryPanel details tab
+    if (changes.some(change => change.type === 'select')) {
+      const selectChange = changes.find(change => change.type === 'select');
+      if (selectChange && selectChange.type === 'select') {
+        // If an edge is selected, clear any selected node
+        if (selectChange.selected) {
+          setSelectedEdgeId(selectChange.id);
+          setSelectedNodeId(null);
+        } else {
+          setSelectedEdgeId(null);
+        }
+      }
+    }
+    
+    dispatch({
+      type: EventTypes.ReactFlow.CHANGE_EDGES,
+      payload: changes
+    });
   }, [edges]);
 
   const dispatchNewConnection = useCallback((params: Connection) => {
     dispatch({ type: EventTypes.ReactFlow.NEW_CONNECTION, payload: params });
   }, []);
+  
+  const onConnect = useCallback(
+    (params: Connection) => {
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const targetNode = nodes.find(n => n.id === params.target);
+      
+      // Validate connection based on pattern rules
+      const validation = isValidConnection(sourceNode || null, targetNode || null);
+      const patternType = getConnectionPatternType(sourceNode || null, targetNode || null);
+      
+      if (validation.valid && patternType) {
+        // Add additional properties needed for our custom edges
+        const enhancedParams = { 
+          ...params,
+          data: { 
+            pattern: patternType,
+            patternType: patternType
+          }
+        };
+        
+        dispatchNewConnection(enhancedParams as Connection);
+      } else {
+        console.warn(validation.message);
+        // Could show toast notification here for invalid connections
+      }
+    },
+    [dispatchNewConnection, nodes],
+  );
 
   const dispatchAddSwimlane = useCallback((swimlane: any) => {
     dispatch({ type: EventTypes.ModelingEditor.ADD_SWIMLANE, payload: swimlane });
@@ -465,17 +533,57 @@ const App = () => {
   }, []);
 
   const onExportEvents = useCallback(() => {
-    const json = JSON.stringify(events, null, 2);
+    // Create a comprehensive export object that includes all model data
+    const exportData = {
+      version: '1.0', // For future compatibility
+      timestamp: new Date().toISOString(),
+      events,
+      currentState: {
+        nodes,
+        edges
+      },
+      // Include metadata about the model patterns
+      metadata: {
+        patterns: {
+          commandPatterns: edges.filter(edge => {
+            const sourceNode = nodes.find(n => n.id === edge.source);
+            const targetNode = nodes.find(n => n.id === edge.target);
+            return sourceNode?.type === 'trigger' && targetNode?.type === 'command' || 
+                  sourceNode?.type === 'command' && targetNode?.type === 'event';
+          }).length,
+          viewPatterns: edges.filter(edge => {
+            const sourceNode = nodes.find(n => n.id === edge.source);
+            const targetNode = nodes.find(n => n.id === edge.target);
+            return sourceNode?.type === 'event' && targetNode?.type === 'view';
+          }).length,
+          automationPatterns: edges.filter(edge => {
+            const sourceNode = nodes.find(n => n.id === edge.source);
+            const targetNode = nodes.find(n => n.id === edge.target);
+            return sourceNode?.type === 'event' && targetNode?.type === 'command';
+          }).length
+        },
+        nodeCounts: {
+          swimlanes: nodes.filter(n => n.type === 'swimlane').length,
+          blocks: nodes.filter(n => n.type === 'block').length,
+          triggers: nodes.filter(n => n.type === 'trigger').length,
+          commands: nodes.filter(n => n.type === 'command').length,
+          events: nodes.filter(n => n.type === 'event').length,
+          views: nodes.filter(n => n.type === 'view').length
+        }
+      }
+    };
+    
+    const json = JSON.stringify(exportData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const href = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = href;
-    link.download = 'event-log.json';
+    link.download = 'event-model-export.json';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(href);
-  }, [events]);
+  }, [events, nodes, edges]);
 
   const onImportEvents = useCallback(() => {
     const input = document.createElement('input');
@@ -487,11 +595,88 @@ const App = () => {
         const reader = new FileReader();
         reader.onload = (event) => {
           try {
-            const parsedEvents: IntentionEventType[] = JSON.parse(event.target?.result as string);
-            dispatch({ type: EventTypes.EventSourcing.LOAD_EVENTS, payload: parsedEvents });
+            const parsed = JSON.parse(event.target?.result as string);
+            
+            // Check if this is an enhanced model export or just an events array
+            if (Array.isArray(parsed)) {
+              // Legacy format - just an events array
+              dispatch({ type: EventTypes.EventSourcing.LOAD_EVENTS, payload: parsed });
+              console.log('Imported legacy events format');
+            } 
+            else if (parsed.events && Array.isArray(parsed.events)) {
+              // New enhanced format - contains events plus additional data
+              dispatch({ type: EventTypes.EventSourcing.LOAD_EVENTS, payload: parsed.events });
+              console.log(`Imported enhanced model with ${parsed.events.length} events`);
+              
+              // Show metadata if available
+              if (parsed.metadata) {
+                console.log('Model metadata:', parsed.metadata);
+                
+                // Display a simple summary of the imported model
+                const nodeCounts = parsed.metadata.nodeCounts;
+                const patternCounts = parsed.metadata.patterns;
+                if (nodeCounts && patternCounts) {
+                  alert(`Successfully imported model with: \n` +
+                        `- ${nodeCounts.swimlanes || 0} swimlanes\n` +
+                        `- ${nodeCounts.triggers || 0} triggers\n` +
+                        `- ${nodeCounts.commands || 0} commands\n` +
+                        `- ${nodeCounts.events || 0} events\n` +
+                        `- ${nodeCounts.views || 0} views\n\n` +
+                        `Patterns:\n` +
+                        `- ${patternCounts.commandPatterns || 0} command patterns\n` +
+                        `- ${patternCounts.viewPatterns || 0} view patterns\n` +
+                        `- ${patternCounts.automationPatterns || 0} automation patterns`);
+                }
+              }
+            } 
+            else {
+              throw new Error('Unrecognized format');
+            }
           } catch (error) {
-            console.error('Failed to parse event log:', error);
-            alert('Failed to load events. Please ensure the file is a valid JSON event log.');
+            console.error('Failed to parse import file:', error);
+            alert('Failed to import model. Please ensure the file is a valid event model export.');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  }, []);
+  
+  // Add a new function to directly import model state (nodes and edges) for advanced use cases
+  const importModelState = useCallback(() => {
+    // Create a file input element to import raw JSON state
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const modelData = JSON.parse(event.target?.result as string);
+            
+            // Check if this is a valid model state
+            if (modelData.nodes && Array.isArray(modelData.nodes) && 
+                modelData.edges && Array.isArray(modelData.edges)) {
+              // Create a snapshot with the imported nodes and edges
+              dispatch({ 
+                type: EventTypes.EventSourcing.CREATE_SNAPSHOT, 
+                payload: {
+                  snapshotNodes: modelData.nodes,
+                  snapshotEdges: modelData.edges,
+                  snapshotIndex: 0
+                }
+              });
+              console.log(`Imported direct model state with ${modelData.nodes.length} nodes and ${modelData.edges.length} edges`);
+              alert(`Successfully imported model state with ${modelData.nodes.length} nodes and ${modelData.edges.length} edges.`);
+            } else {
+              throw new Error('Invalid model state format');
+            }
+          } catch (error) {
+            console.error('Failed to parse model state:', error);
+            alert('Failed to import model state. Please ensure the file contains valid nodes and edges arrays.');
           }
         };
         reader.readAsText(file);
@@ -513,40 +698,6 @@ const App = () => {
   }, [nodes, edges, currentEventIndex]);
 
 
-  const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => {
-      dispatchEdgeChanges(changes);
-    },
-    [dispatchEdgeChanges],
-  );
-
-  const onConnect = useCallback(
-    (params: Connection) => {
-      const sourceNode = nodes.find(n => n.id === params.source);
-      const targetNode = nodes.find(n => n.id === params.target);
-      
-      // Validate connection based on Command Pattern rules
-      const validation = isValidConnection(sourceNode || null, targetNode || null);
-      
-      if (validation.valid) {
-        // Cast params to any to allow adding custom properties
-        const enhancedParams = { 
-          ...params,
-          // Add additional properties needed for our custom edges
-          data: { pattern: 'command_pattern' }
-        };
-        
-        dispatchNewConnection(enhancedParams as Connection);
-      } else {
-        console.warn(validation.message);
-        // Could show toast notification here for invalid connections
-      }
-    },
-    [dispatchNewConnection, nodes],
-  );
-
-
-
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     const filteredChanges = changes.filter(change => {
       if (change.type === 'position') {
@@ -556,6 +707,20 @@ const App = () => {
       return true;
     });
 
+    // Track node selection for HistoryPanel details tab
+    if (changes.some(change => change.type === 'select')) {
+      const selectChange = changes.find(change => change.type === 'select');
+      if (selectChange && selectChange.type === 'select') {
+        // If a node is selected, clear any selected edge
+        if (selectChange.selected) {
+          setSelectedNodeId(selectChange.id);
+          setSelectedEdgeId(null);
+        } else {
+          setSelectedNodeId(null);
+        }
+      }
+    }
+    
     const mappedChanges = filteredChanges.map(change => {
       if (change.type === 'position' && change.position) {
         const node = nodes.find(n => n.id === change.id);
@@ -620,15 +785,17 @@ const App = () => {
       id,
       type: 'trigger',
       position: { x: 100, y: 100 },
-      data: { 
+      data: {
         label: 'New Trigger',
-        triggerType: 'ui' // default trigger type
+        triggerType: 'user',
+        actor: ''
       }
     };
 
     dispatchAddTrigger(newTrigger);
   }, [dispatchAddTrigger]);
 
+// ... (rest of the code remains the same)
   // Function to add a new command node
   const addCommand = useCallback(() => {
     const id = nanoid();
@@ -638,7 +805,9 @@ const App = () => {
       position: { x: 250, y: 100 },
       data: { 
         label: 'New Command',
-        parameters: {}
+        parameters: {},
+        validation: {},
+        preconditions: []
       }
     };
 
@@ -654,7 +823,10 @@ const App = () => {
       position: { x: 400, y: 100 },
       data: { 
         label: 'New Event',
-        payload: {}
+        payload: {},
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        isExternalEvent: false
       }
     };
 
@@ -670,7 +842,10 @@ const App = () => {
       position: { x: 550, y: 100 },
       data: { 
         label: 'New View',
-        sourceEvents: []
+        sourceEvents: [],
+        viewType: 'read',
+        refreshPattern: 'on-demand',
+        permissions: []
       }
     };
 
@@ -721,12 +896,16 @@ const App = () => {
     ),
   }), [dispatchAddBlock, dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources]);
 
-  // Define custom edge types with appropriate styling
+  // Define custom edge types with appropriate styling and enhanced edge data
   const edgeTypes = useMemo(() => ({
-    'command-pattern': ({ id, source, target, markerEnd }: Edge) => {
+    'command-pattern': ({ id, source, target, markerEnd, data }: Edge) => {
       const sourceNode = nodes.find(n => n.id === source);
       const targetNode = nodes.find(n => n.id === target);
       const edgeStyle = getEdgeStyle(sourceNode || null, targetNode || null);
+      
+      // Enhanced tooltip with edge data if available
+      const title = data?.condition ? `Condition: ${data.condition}` : 
+                   data?.notes ? `Notes: ${data.notes}` : '';
       
       return (
         <BaseEdge
@@ -735,6 +914,10 @@ const App = () => {
           target={target}
           style={edgeStyle}
           markerEnd={markerEnd}
+          label={data?.condition ? '?' : undefined}
+          labelStyle={{ fill: '#777', fontSize: '12px' }}
+          labelBgStyle={{ fill: '#f5f5f5' }}
+          title={title}
         />
       );
     },
@@ -751,7 +934,11 @@ const App = () => {
         onExportEvents={onExportEvents}
         onImportEvents={onImportEvents}
         onCompressSnapshot={onCompressSnapshot}
+        onImportModelState={importModelState}
       />
+      
+      {/* Welcome Guide for new users */}
+      {showWelcomeGuide && <WelcomeGuide onClose={handleWelcomeGuideClose} />}
       <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
         <ReactFlow
           nodes={nodes}
@@ -774,13 +961,60 @@ const App = () => {
           <MiniMap zoomable pannable nodeClassName={nodeClassName} />
           <Controls />
           <Background />
+          {/* Add ValidationPanel to provide model correctness guidance */}
+          <ValidationPanel 
+            nodes={nodes} 
+            edges={edges}
+            onNodeSelect={(nodeId) => {
+              // Clear any selected edge
+              setSelectedEdgeId(null);
+              
+              // Select the node and scroll to it
+              setSelectedNodeId(nodeId);
+              
+              // Highlight the selected node
+              const updatedNodes = nodes.map(n => ({
+                ...n,
+                selected: n.id === nodeId
+              }));
+              
+              dispatch({
+                type: EventTypes.ReactFlow.CHANGE_NODES,
+                payload: updatedNodes.map(node => ({
+                  id: node.id,
+                  type: 'select',
+                  selected: node.id === nodeId
+                }))
+              });
+            }}
+            onEdgeSelect={(edgeId) => {
+              // Clear any selected node
+              setSelectedNodeId(null);
+              
+              // Select the edge
+              setSelectedEdgeId(edgeId);
+              
+              // Highlight the selected edge
+              dispatch({
+                type: EventTypes.ReactFlow.CHANGE_EDGES,
+                payload: edges.map(e => ({
+                  id: e.id,
+                  type: 'select',
+                  selected: e.id === edgeId
+                }))
+              });
+            }}
+          />
         </ReactFlow>
         <HistoryPanel
           events={events}
           currentEventIndex={currentEventIndex}
           onTimeTravel={onTimeTravel}
           snapshotNodes={state.snapshotNodes}
-          snapshotEdges={state.snapshotEdges}
+          nodes={nodes}
+          edges={edges}
+          selectedNodeId={selectedNodeId}
+          selectedEdgeId={selectedEdgeId}
         />
       </div>
     </div>
