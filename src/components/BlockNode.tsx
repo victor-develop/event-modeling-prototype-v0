@@ -1,12 +1,9 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
+import type { BlockNodeProps } from '../types/blockTypes';
+import { BlockKind, BLOCK_KIND_COLORS, BLOCK_KIND_BORDERS, BLOCK_KIND_ICONS } from '../types/blockTypes';
 
-interface BlockNodeProps {
-  id: string;
-  data: { label: string };
-  // New prop for dispatching events
-  dispatchUpdateNodeLabel: (nodeId: string, label: string) => void;
-}
+// Using BlockNodeProps type from blockTypes.ts
 
 const BlockNode: React.FC<BlockNodeProps> = ({
   id,
@@ -51,19 +48,35 @@ const BlockNode: React.FC<BlockNodeProps> = ({
     }
   }, [id, label, dispatchUpdateNodeLabel]);
 
+  // Get block kind from data
+  const blockKind = data.kind as string || 'event'; // Default to event if not specified
+  const blockColor = BLOCK_KIND_COLORS[blockKind] || '#ffffff';
+  const blockBorder = BLOCK_KIND_BORDERS[blockKind] || '#cccccc';
+  const blockIcon = BLOCK_KIND_ICONS[blockKind] || '📄';
+
   return (
     <div
       style={{
         width: '100%',
         height: '100%',
-        // Removed border: '1px solid #555',
+        border: `1px solid ${blockBorder}`,
         borderRadius: '5px',
-        backgroundColor: '#fff',
+        backgroundColor: blockColor,
         display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
+        padding: '10px',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
       }}
     >
+      <div style={{ 
+        fontSize: '16px', 
+        marginBottom: '5px' 
+      }}>
+        {blockIcon}
+      </div>
+      
       {isEditing ? (
         <input
           ref={inputRef}
@@ -81,16 +94,37 @@ const BlockNode: React.FC<BlockNodeProps> = ({
             boxSizing: 'border-box',
             outline: 'none',
             boxShadow: 'none',
+            fontSize: '14px',
           }}
         />
       ) : (
         <div
           onDoubleClick={handleDoubleClick}
-          style={{ cursor: 'text', padding: '5px', width: '100%', textAlign: 'center' }}
+          style={{ 
+            cursor: 'text', 
+            padding: '5px', 
+            width: '100%', 
+            textAlign: 'center',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}
         >
           {data.label}
         </div>
       )}
+
+      {/* Add details or other information based on block kind */}
+      {data.details && Object.keys(data.details).length > 0 && (
+        <div style={{ 
+          marginTop: '5px', 
+          fontSize: '12px', 
+          color: '#555', 
+          textAlign: 'center' 
+        }}>
+          {Object.keys(data.details).length} details
+        </div>
+      )}
+      
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
     </div>

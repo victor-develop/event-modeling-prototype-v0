@@ -1,20 +1,17 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { nanoid } from 'nanoid';
-
-interface SwimlaneNodeProps {
-  id: string;
-  data: { label: string };
-  // Removed style?: React.CSSProperties; as it's not directly used in JSX
-  // New props for dispatching events
-  dispatchAddBlock: (blockData: any) => void;
-  dispatchUpdateNodeLabel: (nodeId: string, label: string) => void;
-}
+import type { SwimlaneNodeProps } from '../types/swimlaneTypes';
+import { 
+  ALLOWED_BLOCK_TYPES, 
+  SWIMLANE_KIND_COLORS,
+  SWIMLANE_KIND_LABELS 
+} from '../types/swimlaneTypes';
+import { BlockKind, BLOCK_KIND_BORDERS } from '../types/blockTypes';
 
 const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   id,
   data,
-  // Removed style from destructuring
   dispatchAddBlock,
   dispatchUpdateNodeLabel,
 }) => {
@@ -39,42 +36,89 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
     setLabel(evt.target.value);
   }, []);
 
-  const onAddBlock = useCallback(() => {
+  // Get the allowed block types for this swimlane kind
+  const swimlaneKind = data.kind as string | undefined;
+  const allowedBlockTypes = swimlaneKind && ALLOWED_BLOCK_TYPES[swimlaneKind] ? ALLOWED_BLOCK_TYPES[swimlaneKind] : [];
+
+  // Create a block of the specific type
+  const createBlock = useCallback((blockType: string): void => {
     const parentNode = getNodes().find((node) => node.id === id);
     if (!parentNode) return;
 
     const childNodes = getNodes().filter((node) => node.parentId === id);
 
-    let newX = 10;
-    const blockHeight = 50;
-    const blockWidth = 100;
-    const blockPadding = 20;
-    const topOffsetForBlocks = 80;
-
+    // Block dimensions
+    const blockHeight = 100; // Taller blocks for better visibility
+    const blockWidth = 140;  // Wider blocks for better content display
+    const blockPadding = 20; // Space between blocks
+    const leftMargin = 10;   // Left margin inside swimlane
+    const topOffsetForBlocks = 20; // Vertical position within swimlane content area
+    
+    // Calculate horizontal position for new block
+    let newX = leftMargin; // Default to leftmost position
+    
     if (childNodes.length > 0) {
+      // Find the rightmost block to position the new block after it
       const rightmostChild = childNodes.reduce((prev, current) => {
-        // Fix: Parse width to number before addition
-        const prevWidth = parseFloat(prev.style?.width as string || '0') || 0;
-        const currentWidth = parseFloat(current.style?.width as string || '0') || 0;
-        return (prev.position.x + prevWidth) > (current.position.x + currentWidth)
-          ? prev
-          : current;
+        const prevRight = prev.position.x + (parseFloat(prev.style?.width as string || '0') || blockWidth);
+        const currentRight = current.position.x + (parseFloat(current.style?.width as string || '0') || blockWidth);
+        return prevRight > currentRight ? prev : current;
       });
-      // Fix: Parse width to number before addition
-      newX = rightmostChild.position.x + (parseFloat(rightmostChild.style?.width as string || '0') || blockWidth) + blockPadding;
+      
+      // Position new block to the right of the rightmost block
+      newX = rightmostChild.position.x + 
+             (parseFloat(rightmostChild.style?.width as string || '0') || blockWidth) + 
+             blockPadding;
+      
+      // Calculate total width needed for all blocks including the new one
+      const totalWidth = newX + blockWidth + leftMargin;
+      
+      // If parent swimlane needs to grow, dispatch an event to update it
+      if (totalWidth > parseFloat(parentNode.style?.width as string || '0')) {
+        // We'll let the reducer handle the width update
+        // Just make sure we pass enough info in the block payload
+      }
+    }
+
+    // Map the block type to the appropriate BlockKind
+    let blockKind: BlockKind;
+    switch (blockType.toLowerCase()) {
+      case 'trigger':
+        blockKind = BlockKind.TRIGGER;
+        break;
+      case 'command':
+        blockKind = BlockKind.COMMAND;
+        break;
+      case 'event':
+        blockKind = BlockKind.EVENT;
+        break;
+      case 'view':
+        blockKind = BlockKind.VIEW;
+        break;
+      default:
+        console.error(`Unknown block type: ${blockType}`);
+        return;
     }
 
     const newBlock = {
       id: nanoid(),
-      type: 'block',
+      type: blockType.toLowerCase(),
       position: { x: newX, y: topOffsetForBlocks },
-      data: { label: `Block ${childNodes.length + 1}` },
+      data: { 
+        label: `${blockType} ${childNodes.length + 1}`,
+        kind: blockKind
+      },
       parentId: id,
       extent: 'parent',
-      style: { width: blockWidth, height: blockHeight, border: '1px solid #555', backgroundColor: '#fff' },
+      style: { 
+        width: blockWidth, 
+        height: blockHeight, 
+        border: '1px solid #555', 
+        backgroundColor: '#fff'
+      },
     };
 
-    // The swimlane width update logic is now handled in the appReducer (ADD_BLOCK case)
+    // The swimlane width update logic is handled in the appReducer (ADD_BLOCK case)
     dispatchAddBlock(newBlock);
   }, [id, getNodes, dispatchAddBlock]);
 
@@ -101,35 +145,129 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
         height: '100%',
         border: '1px solid #ccc',
         borderRadius: '5px',
-        backgroundColor: 'rgba(200,200,255,0.2)',
+        backgroundColor: swimlaneKind && SWIMLANE_KIND_COLORS[swimlaneKind] ? SWIMLANE_KIND_COLORS[swimlaneKind] : 'rgba(200,200,255,0.2)',
         padding: '10px',
         display: 'flex',
         flexDirection: 'column',
+        position: 'relative',
       }}
     >
-      {isEditing ? (
-        <input
-          ref={inputRef}
-          type="text"
-          value={label}
-          onChange={onLabelChange}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          style={{ fontWeight: 'bold', marginBottom: '10px', border: 'none', background: 'transparent', fontSize: '1em', outline: 'none' }}
-        />
-      ) : (
-        <div
-          onDoubleClick={handleDoubleClick}
-          style={{ fontWeight: 'bold', marginBottom: '10px', cursor: 'text', fontSize: '1em' }}
-        >
-          {data.label}
+      {/* Add vertical drag handle for restricted vertical movement */}
+      <div className="vertical-drag-handle" style={{
+        position: 'absolute',
+        left: '50%',
+        top: '0px',
+        transform: 'translateX(-50%)',
+        width: '30px',
+        height: '10px',
+        background: '#888',
+        borderBottomLeftRadius: '4px',
+        borderBottomRightRadius: '4px',
+        cursor: 'ns-resize',
+        zIndex: 10,
+      }} />
+      
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '10px'
+      }}>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={label}
+            onChange={onLabelChange}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            style={{ 
+              fontWeight: 'bold', 
+              border: 'none', 
+              background: 'transparent', 
+              fontSize: '1em', 
+              outline: 'none',
+              flexGrow: 1
+            }}
+          />
+        ) : (
+          <div
+            onDoubleClick={handleDoubleClick}
+            style={{ 
+              fontWeight: 'bold', 
+              cursor: 'text', 
+              fontSize: '1em',
+              flexGrow: 1
+            }}
+          >
+            {data.label || (swimlaneKind && SWIMLANE_KIND_LABELS[swimlaneKind] ? SWIMLANE_KIND_LABELS[swimlaneKind] : 'Swimlane')}
+          </div>
+        )}
+        <div className="swimlane-kind-badge" style={{ 
+          fontSize: '0.8em', 
+          backgroundColor: 'rgba(255,255,255,0.6)', 
+          padding: '2px 6px',
+          borderRadius: '10px'
+        }}>
+          {swimlaneKind && SWIMLANE_KIND_LABELS[swimlaneKind] ? SWIMLANE_KIND_LABELS[swimlaneKind] : 'Generic'}
         </div>
-      )}
-      <button onClick={onAddBlock} style={{ marginBottom: '10px', padding: '5px 10px', cursor: 'pointer' }}>
-        Add Block
-      </button>
-      <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', overflowX: 'auto' }}>
       </div>
+      
+      <div className="block-creation-buttons" style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '10px',
+        marginTop: '10px'
+      }}>
+        {allowedBlockTypes.map((blockType) => {
+          // Map from block type display name to kind value
+          const blockKindValue = blockType.toLowerCase();
+          // Get color for this block kind
+          const buttonBorderColor = BLOCK_KIND_BORDERS[blockKindValue] || '#ddd';
+          
+          return (
+            <button 
+              key={blockType}
+              onClick={() => createBlock(blockKindValue)}
+              className="create-block-button"
+              style={{ 
+                padding: '5px 10px',
+                background: '#f0f0f0',
+                border: `1px solid ${buttonBorderColor}`,
+                borderRadius: '3px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title={`Create ${blockType}`}
+            >
+              <span>+</span> {blockType}
+            </button>
+          );
+        })}
+      </div>
+      
+      <div style={{ 
+        flexGrow: 1, 
+        display: 'flex', 
+        flexDirection: 'row', 
+        flexWrap: 'nowrap', 
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        minHeight: '100px',
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: '3px',
+        padding: '5px',
+        gap: '10px', // Add spacing between blocks
+        alignItems: 'flex-start' // Align blocks at the top
+      }}>
+        {/* Blocks will render here */}
+      </div>
+      
+      {/* Handles for connections */}
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
     </div>

@@ -184,18 +184,30 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
       if (block.parentId) {
         const parentNode = newNodes.find(n => n.id === block.parentId);
         if (parentNode) {
-          const blockRightEdge = block.position.x + (block.style?.width || 100);
-          const parentRightEdge = parentNode.position.x + (parentNode.style?.width || 0);
+          // Calculate block dimensions with padding
+          const blockWidth = parseFloat(block.style?.width as string || '140'); // Default block width
+          const horizontalPadding = 30; // Add padding for visual space
+          const minSwimlaneWidth = 800; // Minimum swimlane width
           
-          // If the block extends beyond the parent swimlane, extend the parent
-          if (blockRightEdge + 50 > parentRightEdge) {
+          // Calculate right edge of new block including padding
+          const blockRightEdge = block.position.x + blockWidth + horizontalPadding;
+          const currentParentWidth = parseFloat(parentNode.style?.width as string || '800');
+          
+          // Calculate the new parent width if needed (ensure minimum width too)
+          const newParentWidth = Math.max(
+            minSwimlaneWidth,
+            blockRightEdge > currentParentWidth ? blockRightEdge : currentParentWidth
+          );
+          
+          // Update parent swimlane width if needed
+          if (newParentWidth > currentParentWidth) {
             const updatedNodes = newNodes.map(n => {
               if (n.id === block.parentId) {
                 return {
                   ...n,
                   style: {
                     ...n.style,
-                    width: blockRightEdge + 50 // Add some padding
+                    width: newParentWidth
                   }
                 };
               }
@@ -761,18 +773,39 @@ const App = () => {
     handleNodeMove(node.id, node.position);
   }, [handleNodeMove]);
 
-  // Function to add a new swimlane
-  const addSwimlane = useCallback(() => {
+  // Function to add a new swimlane with specified kind
+  const addSwimlane = useCallback((kind = 'event') => {
     const id = nanoid();
-    const swimlaneWidth = 800;
-    const swimlaneHeight = 300;
+    const swimlaneWidth = 900; // Wider to accommodate multiple blocks horizontally
+    const swimlaneHeight = 200; // Fixed height for consistency
+    const verticalGap = 50;  // Gap between swimlanes
+    
+    // Find existing swimlanes to calculate vertical position
+    const swimlanes = nodes.filter(node => node.type === 'swimlane');
+    
+    // Calculate Y position based on existing swimlanes
+    // Position new swimlane below all existing swimlanes
+    let yPosition = 50; // Default Y position if no swimlanes exist
+    
+    if (swimlanes.length > 0) {
+      // Find the lowest swimlane and position below it
+      yPosition = Math.max(...swimlanes.map(sl => {
+        const height = parseFloat(sl.style?.height) || swimlaneHeight;
+        return sl.position.y + height;
+      })) + verticalGap;
+    }
 
     const newSwimlane = {
       id,
       type: 'swimlane',
-      position: { x: 100, y: (nodes.length + 1) * 50 },
+      position: { x: 100, y: yPosition },
       style: { width: swimlaneWidth, height: swimlaneHeight },
-      data: { label: 'Swimlane ' + (nodes.length + 1) }
+      data: { 
+        label: `${kind.charAt(0).toUpperCase() + kind.slice(1)} Lane`,
+        kind: kind // Store swimlane kind
+      },
+      // Prevent horizontal dragging, only allow vertical repositioning
+      dragHandle: '.vertical-drag-handle' // Will add this class to a drag handle
     };
 
     dispatchAddSwimlane(newSwimlane);
