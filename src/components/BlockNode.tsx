@@ -8,7 +8,7 @@ import { BlockKind, BLOCK_KIND_COLORS, BLOCK_KIND_BORDERS, BLOCK_KIND_ICONS } fr
 const BlockNode: React.FC<BlockNodeProps> = ({
   id,
   data,
-  dispatchUpdateNodeLabel,
+  onLabelChange,
 }) => {
   const { } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
@@ -28,7 +28,7 @@ const BlockNode: React.FC<BlockNodeProps> = ({
     }
   }, [isEditing]);
 
-  const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLabelInputChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
     setLabel(evt.target.value);
   }, []);
 
@@ -37,16 +37,20 @@ const BlockNode: React.FC<BlockNodeProps> = ({
   }, []);
 
   const handleBlur = useCallback(() => {
+    console.log('BlockNode handleBlur', { id, label, dataLabel: data.label });
     setIsEditing(false);
-    dispatchUpdateNodeLabel(id, label);
-  }, [id, label, dispatchUpdateNodeLabel]);
+    // Always update the label when editing is complete
+    console.log('BlockNode calling onLabelChange on blur', { id, label });
+    onLabelChange(id, label);
+  }, [id, label, data.label, onLabelChange]);
 
   const handleKeyDown = useCallback((evt: React.KeyboardEvent<HTMLInputElement>) => {
     if (evt.key === 'Enter') {
       setIsEditing(false);
-      dispatchUpdateNodeLabel(id, label);
+      // Always update the label when pressing Enter
+      onLabelChange(id, label);
     }
-  }, [id, label, dispatchUpdateNodeLabel]);
+  }, [id, label, onLabelChange]);
 
   // Get block kind from data
   const blockKind = data.kind as string || 'event'; // Default to event if not specified
@@ -82,7 +86,7 @@ const BlockNode: React.FC<BlockNodeProps> = ({
           ref={inputRef}
           type="text"
           value={label}
-          onChange={onLabelChange}
+          onChange={handleLabelInputChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           style={{

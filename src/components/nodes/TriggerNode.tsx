@@ -8,24 +8,25 @@ interface TriggerNodeProps {
     triggerType: 'ui' | 'api' | 'automated';
   };
   selected: boolean;
-  dispatchUpdateNodeLabel: (nodeId: string, label: string) => void;
+  onLabelChange: (nodeId: string, label: string) => void;
 }
 
 const TriggerNode: React.FC<TriggerNodeProps> = ({
   id,
   data,
   selected,
-  dispatchUpdateNodeLabel,
+  onLabelChange,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Only update local label state when data.label changes from outside
+  // This prevents overriding our local edits when we're updating the label
   useEffect(() => {
-    if (!isEditing) {
-      setLabel(data.label);
-    }
-  }, [data.label, isEditing]);
+    console.log('TriggerNode useEffect data.label changed', { dataLabel: data.label, currentLabel: label });
+    setLabel(data.label);
+  }, [data.label]);
 
   useEffect(() => {
     if (isEditing) {
@@ -33,29 +34,35 @@ const TriggerNode: React.FC<TriggerNodeProps> = ({
     }
   }, [isEditing]);
 
-  const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
-    setLabel(evt.target.value);
-  }, []);
+  const handleLabelChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('TriggerNode onLabelChange BEFORE', { id, currentLabel: label, newValue: e.target.value });
+    setLabel(e.target.value);
+    console.log('TriggerNode onLabelChange AFTER', { id, updatedLabel: e.target.value });
+  }, [id, label]);
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
   }, []);
 
   const handleBlur = useCallback(() => {
+    console.log('TriggerNode handleBlur BEFORE', { id, label, dataLabel: data.label, isEditing });
     setIsEditing(false);
-    if (label !== data.label) {
-      dispatchUpdateNodeLabel(id, label);
-    }
-  }, [id, label, data.label, dispatchUpdateNodeLabel]);
+    // Always update the label when editing is complete
+    console.log('TriggerNode calling onLabelChange on blur', { id, label });
+    onLabelChange(id, label);
+    console.log('TriggerNode handleBlur AFTER', { id, label, dataLabel: data.label });
+  }, [id, label, data.label, onLabelChange, isEditing]);
 
   const handleKeyDown = useCallback((evt: React.KeyboardEvent<HTMLInputElement>) => {
     if (evt.key === 'Enter') {
+      console.log('TriggerNode handleKeyDown Enter BEFORE', { id, label, dataLabel: data.label, isEditing });
       setIsEditing(false);
-      if (label !== data.label) {
-        dispatchUpdateNodeLabel(id, label);
-      }
+      // Always update the label when pressing Enter
+      console.log('TriggerNode calling onLabelChange on Enter', { id, label });
+      onLabelChange(id, label);
+      console.log('TriggerNode handleKeyDown Enter AFTER', { id, label, dataLabel: data.label });
     }
-  }, [id, label, data.label, dispatchUpdateNodeLabel]);
+  }, [id, label, data.label, onLabelChange, isEditing]);
 
   const getTriggerIcon = () => {
     switch (data.triggerType) {
@@ -101,7 +108,7 @@ const TriggerNode: React.FC<TriggerNodeProps> = ({
             ref={inputRef}
             type="text"
             value={label}
-            onChange={onLabelChange}
+            onChange={handleLabelChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             style={{ 

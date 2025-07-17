@@ -33,7 +33,7 @@ export interface BlockNodeProps {
   id: string;
   data: BlockNodeData;
   // Prop for dispatching events
-  dispatchUpdateNodeLabel: (nodeId: string, label: string) => void;
+  onLabelChange: (nodeId: string, label: string) => void;
 }
 
 /**

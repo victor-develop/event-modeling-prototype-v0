@@ -774,8 +774,36 @@ const App = () => {
   // Handle node selection
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
+      // Process each change based on its type
+      const processedChanges = changes.filter(change => {
+        // Handle different change types
+        if (change.type === 'position') {
+          // Get the node being changed
+          const node = nodes.find(n => n.id === change.id);
+          
+          // Prevent swimlane movement completely
+          if (node?.type === 'swimlane') {
+            console.log('Preventing swimlane movement');
+            // Filter out position changes for swimlanes
+            return false;
+          }
+          
+          // Constrain block nodes to horizontal movement only
+          if ((node?.type === 'block' || node?.type === 'trigger' || 
+               node?.type === 'command' || node?.type === 'event' || 
+               node?.type === 'view') && 'position' in change && change.position) {
+            console.log(`Constraining ${node.type} to horizontal movement`);
+            // Modify the change to preserve the original y-position
+            change.position.y = node.position.y;
+          }
+        }
+        
+        // Keep all other changes
+        return true;
+      });
+
       // Check if this is a selection change
-      const selectionChange = changes.find(change => 
+      const selectionChange = processedChanges.find(change => 
         change.type === 'select' && (change as NodeSelectionChange).selected === true
       ) as NodeSelectionChange | undefined;
       
@@ -791,10 +819,13 @@ const App = () => {
         }
       }
       
-      dispatch({
-        type: EventTypes.ReactFlow.CHANGE_NODES,
-        payload: changes
-      });
+      // Only dispatch if there are changes to apply
+      if (processedChanges.length > 0) {
+        dispatch({
+          type: EventTypes.ReactFlow.CHANGE_NODES,
+          payload: processedChanges
+        });
+      }
     },
     [dispatch, nodes]
   );
@@ -813,15 +844,37 @@ const App = () => {
   // Handle node drag stop
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: any) => {
+      // Get the original node from our state
+      const originalNode = nodes.find(n => n.id === node.id);
+      
+      if (!originalNode) return;
+      
+      // Apply movement constraints
+      let finalPosition = { ...node.position };
+      
+      // Prevent swimlane movement completely
+      if (node.type === 'swimlane') {
+        console.log('Preventing swimlane drag movement');
+        finalPosition = { ...originalNode.position };
+      } 
+      // Constrain block nodes to horizontal movement only
+      else if (node.type === 'block' || node.type === 'trigger' || 
+          node.type === 'command' || node.type === 'event' || 
+          node.type === 'view') {
+        console.log(`Constraining ${node.type} to horizontal movement on drag stop`);
+        finalPosition.y = originalNode.position.y;
+      }
+      
+      // Dispatch the move event with constrained position
       dispatch({
         type: EventTypes.ModelingEditor.MOVE_NODE,
         payload: {
           nodeId: node.id,
-          position: node.position
+          position: finalPosition
         }
       });
     },
-    [dispatch]
+    [dispatch, nodes]
   );
   
   // Handle connections between nodes

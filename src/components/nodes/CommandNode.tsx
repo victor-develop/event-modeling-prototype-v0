@@ -8,26 +8,27 @@ interface CommandNodeProps {
     parameters?: Record<string, string>;
   };
   selected: boolean;
-  dispatchUpdateNodeLabel: (nodeId: string, label: string) => void;
-  dispatchUpdateCommandParameters?: (nodeId: string, parameters: Record<string, string>) => void;
+  onLabelChange: (nodeId: string, label: string) => void;
+  onParametersChange?: (nodeId: string, parameters: Record<string, string>) => void;
 }
 
 const CommandNode: React.FC<CommandNodeProps> = ({
   id,
   data,
   selected,
-  dispatchUpdateNodeLabel,
-  dispatchUpdateCommandParameters,
+  onLabelChange,
+  onParametersChange,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Only update local label state when data.label changes from outside
+  // This prevents overriding our local edits when we're updating the label
   useEffect(() => {
-    if (!isEditing) {
-      setLabel(data.label);
-    }
-  }, [data.label, isEditing]);
+    console.log('CommandNode useEffect data.label changed', { dataLabel: data.label, currentLabel: label });
+    setLabel(data.label);
+  }, [data.label]);
 
   useEffect(() => {
     if (isEditing) {
@@ -35,29 +36,35 @@ const CommandNode: React.FC<CommandNodeProps> = ({
     }
   }, [isEditing]);
 
-  const onLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLabelChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('CommandNode onLabelChange BEFORE', { id, currentLabel: label, newValue: evt.target.value });
     setLabel(evt.target.value);
-  }, []);
+    console.log('CommandNode onLabelChange AFTER', { id, updatedLabel: evt.target.value });
+  }, [id, label]);
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
   }, []);
 
   const handleBlur = useCallback(() => {
+    console.log('CommandNode handleBlur BEFORE', { id, label, dataLabel: data.label, isEditing });
     setIsEditing(false);
-    if (label !== data.label) {
-      dispatchUpdateNodeLabel(id, label);
-    }
-  }, [id, label, data.label, dispatchUpdateNodeLabel]);
+    // Always update the label when editing is complete
+    console.log('CommandNode calling onLabelChange on blur', { id, label });
+    onLabelChange(id, label);
+    console.log('CommandNode handleBlur AFTER', { id, label, dataLabel: data.label });
+  }, [id, label, data.label, onLabelChange, isEditing]);
 
   const handleKeyDown = useCallback((evt: React.KeyboardEvent<HTMLInputElement>) => {
     if (evt.key === 'Enter') {
+      console.log('CommandNode handleKeyDown Enter BEFORE', { id, label, dataLabel: data.label, isEditing });
       setIsEditing(false);
-      if (label !== data.label) {
-        dispatchUpdateNodeLabel(id, label);
-      }
+      // Always update the label when pressing Enter
+      console.log('CommandNode calling onLabelChange on Enter', { id, label });
+      onLabelChange(id, label);
+      console.log('CommandNode handleKeyDown Enter AFTER', { id, label, dataLabel: data.label });
     }
-  }, [id, label, data.label, dispatchUpdateNodeLabel]);
+  }, [id, label, data.label, onLabelChange, isEditing]);
 
   return (
     <div
@@ -91,7 +98,7 @@ const CommandNode: React.FC<CommandNodeProps> = ({
             ref={inputRef}
             type="text"
             value={label}
-            onChange={onLabelChange}
+            onChange={handleLabelChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             style={{ 
