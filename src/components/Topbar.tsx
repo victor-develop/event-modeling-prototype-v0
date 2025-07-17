@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 
 interface TopbarProps {
-  onAddSwimlane: () => void;
+  onAddSwimlane: (kind: string) => void;
   onAddTrigger: () => void;
   onAddCommand: () => void;
   onAddEvent: () => void;
@@ -23,6 +23,18 @@ const Topbar: React.FC<TopbarProps> = ({
   onCompressSnapshot,
   onImportModelState
 }) => {
+  // State for selected swimlane kind
+  const [selectedSwimlaneKind, setSelectedSwimlaneKind] = React.useState<string>('event');
+  
+  // Handle swimlane kind change
+  const handleSwimlaneKindChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedSwimlaneKind(e.target.value);
+  };
+  
+  // Handle add swimlane button click
+  const handleAddSwimlane = () => {
+    onAddSwimlane(selectedSwimlaneKind);
+  };
   return (
     <div
       style={{
@@ -37,9 +49,20 @@ const Topbar: React.FC<TopbarProps> = ({
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ marginBottom: '8px' }}>
           <span style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Layout</span>
-          <button onClick={onAddSwimlane} style={{ marginRight: '5px' }}>
-            Add Swimlane
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <select 
+              value={selectedSwimlaneKind} 
+              onChange={handleSwimlaneKindChange}
+              style={{ padding: '3px', borderRadius: '3px' }}
+            >
+              <option value="event">Event Lane</option>
+              <option value="command_view">Command & View Lane</option>
+              <option value="trigger">Trigger Lane</option>
+            </select>
+            <button onClick={handleAddSwimlane} style={{ marginRight: '5px' }}>
+              Add Swimlane
+            </button>
+          </div>
         </div>
 
         <div style={{ marginBottom: '8px' }}>

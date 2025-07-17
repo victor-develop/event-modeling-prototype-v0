@@ -1,4 +1,4 @@
-import React, { useCallback, useReducer, useMemo, useState } from 'react';
+import React, { useCallback, useReducer, useState, useMemo } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -8,9 +8,10 @@ import {
   type NodeChange,
   type EdgeChange,
   type Connection,
-  type Edge,
+  type NodeSelectionChange,
   MarkerType,
-  BaseEdge
+  // Removed unused import
+  // type Edge as ReactFlowEdge
 } from '@xyflow/react';
 import { isValidConnection, getEdgeStyle, ConnectionPattern, getConnectionPatternType } from './utils/patternValidation';
 // Import our enhanced types
@@ -160,15 +161,18 @@ function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
         // Cast connection to any to access additional properties we've added
         const extendedConnection = connection as any;
         const newEdge = {
-          id: `${connection.source}-${connection.target}`,
+          id: `${connection.source}-${connection.target}-${Date.now()}`, // Add timestamp to ensure unique IDs
           source: connection.source,
           target: connection.target,
           animated: extendedConnection.animated || false,
           style: extendedConnection.style || {},
+          // Explicitly use MarkerType from ReactFlow
           markerEnd: extendedConnection.markerEnd || { type: MarkerType.ArrowClosed },
+          // Ensure edge type is explicitly set to match our registered edge type
           type: 'command-pattern',
           data: extendedConnection.data || { pattern: 'default' }
         };
+        console.log('Adding new edge:', newEdge);
         newEdges = [...newEdges, newEdge];
       }
       break;
@@ -391,567 +395,781 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
 
 // --- End Event Sourcing Setup ---
 
+// Define edge types for React Flow
 const edgeTypes = {
+  'command-pattern': (props: any) => {
+    const { data } = props;
+    // Fix: Pass null nodes instead of just the pattern type
+    const edgeStyle = getEdgeStyle(null, null);
+    
+    // If we have a pattern type, use it to determine the style
+    if (data?.patternType) {
+      // Use the pattern-specific styling
+      if (data.patternType === ConnectionPattern.COMMAND_PATTERN) {
+        Object.assign(edgeStyle, {
+          stroke: '#333',
+          strokeWidth: 2,
+        });
+      } else if (data.patternType === ConnectionPattern.VIEW_PATTERN) {
+        Object.assign(edgeStyle, {
+          stroke: '#22a355',
+          strokeWidth: 2,
+          strokeDasharray: '5,5',
+        });
+      } else if (data.patternType === ConnectionPattern.AUTOMATION_PATTERN) {
+        Object.assign(edgeStyle, {
+          stroke: '#8844cc',
+          strokeWidth: 2,
+          strokeDasharray: '2,2',
+          opacity: 0.8,
+        });
+      }
+    }
+    
+    // pass our custom props through EdgeProps as provided by React Flow
+    return (
+      <g>
+        {/* Custom edge path */}
+        <path
+          className="react-flow__edge-path"
+          d={props.pathPoints || `M${props.sourceX},${props.sourceY} L${props.targetX},${props.targetY}`}
+          style={edgeStyle}
+        />
+        {/* Edge label if condition exists */}
+        {data?.condition && (
+          <text
+            className="react-flow__edge-text"
+            x={(props.sourceX + props.targetX) / 2}
+            y={(props.sourceY + props.targetY) / 2 - 10}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            style={{ fill: '#777', fontSize: '12px', background: '#f5f5f5' }}
+          >
+            ?
+          </text>
+        )}
+      </g>
+    );
+  },
 };
 
-const nodeClassName = (node: any) => node.type;
+const nodeClassName = (node: any): string => node.type;
 
 const App = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [selectedSwimlaneId, setSelectedSwimlaneId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(() => {
     // Check if the user has seen the welcome guide before
-    const hasSeenGuide = localStorage.getItem('hasSeenWelcomeGuide');
-    return hasSeenGuide !== 'true';
+    // Check if the user has seen the welcome guide before
+    const hasSeenWelcomeGuide = localStorage.getItem('hasSeenWelcomeGuide');
+    return hasSeenWelcomeGuide !== 'true';
   });
   
+  // Extract nodes and edges from state for convenience
+  const { nodes, edges, events, currentEventIndex } = state;
+  
   // Handle closing the welcome guide
-  const handleWelcomeGuideClose = () => {
+  const handleWelcomeGuideClose = useCallback(() => {
     setShowWelcomeGuide(false);
     localStorage.setItem('hasSeenWelcomeGuide', 'true');
-  };
-  
-  // Track selected node and edge for the enhanced HistoryPanel
-  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
-  const [selectedEdgeId, setSelectedEdgeId] = React.useState<string | null>(null);
-  const { nodes, edges, events, currentEventIndex } = state;
-
-  const dispatchNodeChanges = useCallback((changes: NodeChange[]) => {
-    dispatch({ type: EventTypes.ReactFlow.CHANGE_NODES, payload: changes });
-  }, [nodes]);
-
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    // Track edge selection for HistoryPanel details tab
-    if (changes.some(change => change.type === 'select')) {
-      const selectChange = changes.find(change => change.type === 'select');
-      if (selectChange && selectChange.type === 'select') {
-        // If an edge is selected, clear any selected node
-        if (selectChange.selected) {
-          setSelectedEdgeId(selectChange.id);
-          setSelectedNodeId(null);
-        } else {
-          setSelectedEdgeId(null);
-        }
-      }
-    }
-    
-    dispatch({
-      type: EventTypes.ReactFlow.CHANGE_EDGES,
-      payload: changes
-    });
-  }, [edges]);
-
-  const dispatchNewConnection = useCallback((params: Connection) => {
-    dispatch({ type: EventTypes.ReactFlow.NEW_CONNECTION, payload: params });
   }, []);
   
-  const onConnect = useCallback(
-    (params: Connection) => {
-      const sourceNode = nodes.find(n => n.id === params.source);
-      const targetNode = nodes.find(n => n.id === params.target);
-      
-      // Validate connection based on pattern rules
-      const validation = isValidConnection(sourceNode || null, targetNode || null);
-      const patternType = getConnectionPatternType(sourceNode || null, targetNode || null);
-      
-      if (validation.valid && patternType) {
-        // Add additional properties needed for our custom edges
-        const enhancedParams = { 
-          ...params,
-          data: { 
-            pattern: patternType,
-            patternType: patternType
-          }
-        };
-        
-        dispatchNewConnection(enhancedParams as Connection);
-      } else {
-        console.warn(validation.message);
-        // Could show toast notification here for invalid connections
-      }
-    },
-    [dispatchNewConnection, nodes],
-  );
-
-  const dispatchAddSwimlane = useCallback((swimlane: any) => {
-    dispatch({ type: EventTypes.ModelingEditor.ADD_SWIMLANE, payload: swimlane });
-  }, []);
-
-  const dispatchAddBlock = useCallback((block: any) => {
-    dispatch({ type: EventTypes.ModelingEditor.ADD_BLOCK, payload: block });
-  }, []);
-
-  // New node type dispatchers
-  const dispatchAddTrigger = useCallback((trigger: any) => {
-    dispatch({ type: EventTypes.ModelingEditor.ADD_TRIGGER, payload: trigger });
-  }, []);
-
-  const dispatchAddCommand = useCallback((command: any) => {
-    dispatch({ type: EventTypes.ModelingEditor.ADD_COMMAND, payload: command });
-  }, []);
-
-  const dispatchAddEvent = useCallback((event: any) => {
-    dispatch({ type: EventTypes.ModelingEditor.ADD_EVENT, payload: event });
-  }, []);
-
-  const dispatchAddView = useCallback((view: any) => {
-    dispatch({ type: EventTypes.ModelingEditor.ADD_VIEW, payload: view });
-  }, []);
-
-  const dispatchUpdateNodeLabel = useCallback((nodeId: string, label: string) => {
-    dispatch({
-      type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL,
-      payload: { nodeId, label }
-    });
-  }, []);
-  
-  // New property update dispatchers
-  const dispatchUpdateCommandParameters = useCallback((nodeId: string, parameters: Record<string, string>) => {
-    dispatch({
-      type: EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS,
-      payload: { nodeId, parameters }
-    });
-  }, []);
-
-  const dispatchUpdateEventPayload = useCallback((nodeId: string, payload: Record<string, any>) => {
-    dispatch({
-      type: EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD,
-      payload: { nodeId, payload }
-    });
-  }, []);
-
-  const dispatchUpdateViewSources = useCallback((nodeId: string, sourceEvents: string[]) => {
-    dispatch({
-      type: EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES,
-      payload: { nodeId, sourceEvents }
-    });
-  }, []);
-  
-  const dispatchMoveBlock = useCallback((nodeId: string, position: { x: number; y: number }) => {
-    dispatch({
-      type: EventTypes.ModelingEditor.MOVE_BLOCK,
-      payload: { nodeId, position }
-    });
-  }, []);
-
-  const dispatchMoveNode = useCallback((nodeId: string, position: { x: number; y: number }) => {
-    dispatch({
-      type: EventTypes.ModelingEditor.MOVE_NODE,
-      payload: { nodeId, position }
-    });
-  }, []);
-
-  const onTimeTravel = useCallback((index: number) => {
-    dispatch({ type: EventTypes.EventSourcing.TIME_TRAVEL, payload: { index } });
-  }, []);
-
-  const onExportEvents = useCallback(() => {
-    // Create a comprehensive export object that includes all model data
-    const exportData = {
-      version: '1.0', // For future compatibility
-      timestamp: new Date().toISOString(),
-      events,
-      currentState: {
-        nodes,
-        edges
-      },
-      // Include metadata about the model patterns
-      metadata: {
-        patterns: {
-          commandPatterns: edges.filter(edge => {
-            const sourceNode = nodes.find(n => n.id === edge.source);
-            const targetNode = nodes.find(n => n.id === edge.target);
-            return sourceNode?.type === 'trigger' && targetNode?.type === 'command' || 
-                  sourceNode?.type === 'command' && targetNode?.type === 'event';
-          }).length,
-          viewPatterns: edges.filter(edge => {
-            const sourceNode = nodes.find(n => n.id === edge.source);
-            const targetNode = nodes.find(n => n.id === edge.target);
-            return sourceNode?.type === 'event' && targetNode?.type === 'view';
-          }).length,
-          automationPatterns: edges.filter(edge => {
-            const sourceNode = nodes.find(n => n.id === edge.source);
-            const targetNode = nodes.find(n => n.id === edge.target);
-            return sourceNode?.type === 'event' && targetNode?.type === 'command';
-          }).length
-        },
-        nodeCounts: {
-          swimlanes: nodes.filter(n => n.type === 'swimlane').length,
-          blocks: nodes.filter(n => n.type === 'block').length,
-          triggers: nodes.filter(n => n.type === 'trigger').length,
-          commands: nodes.filter(n => n.type === 'command').length,
-          events: nodes.filter(n => n.type === 'event').length,
-          views: nodes.filter(n => n.type === 'view').length
-        }
-      }
-    };
-    
-    const json = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const href = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = href;
-    link.download = 'event-model-export.json';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(href);
-  }, [events, nodes, edges]);
-
-  const onImportEvents = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = (e: Event) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const parsed = JSON.parse(event.target?.result as string);
-            
-            // Check if this is an enhanced model export or just an events array
-            if (Array.isArray(parsed)) {
-              // Legacy format - just an events array
-              dispatch({ type: EventTypes.EventSourcing.LOAD_EVENTS, payload: parsed });
-              console.log('Imported legacy events format');
-            } 
-            else if (parsed.events && Array.isArray(parsed.events)) {
-              // New enhanced format - contains events plus additional data
-              dispatch({ type: EventTypes.EventSourcing.LOAD_EVENTS, payload: parsed.events });
-              console.log(`Imported enhanced model with ${parsed.events.length} events`);
-              
-              // Show metadata if available
-              if (parsed.metadata) {
-                console.log('Model metadata:', parsed.metadata);
-                
-                // Display a simple summary of the imported model
-                const nodeCounts = parsed.metadata.nodeCounts;
-                const patternCounts = parsed.metadata.patterns;
-                if (nodeCounts && patternCounts) {
-                  alert(`Successfully imported model with: \n` +
-                        `- ${nodeCounts.swimlanes || 0} swimlanes\n` +
-                        `- ${nodeCounts.triggers || 0} triggers\n` +
-                        `- ${nodeCounts.commands || 0} commands\n` +
-                        `- ${nodeCounts.events || 0} events\n` +
-                        `- ${nodeCounts.views || 0} views\n\n` +
-                        `Patterns:\n` +
-                        `- ${patternCounts.commandPatterns || 0} command patterns\n` +
-                        `- ${patternCounts.viewPatterns || 0} view patterns\n` +
-                        `- ${patternCounts.automationPatterns || 0} automation patterns`);
-                }
-              }
-            } 
-            else {
-              throw new Error('Unrecognized format');
-            }
-          } catch (error) {
-            console.error('Failed to parse import file:', error);
-            alert('Failed to import model. Please ensure the file is a valid event model export.');
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
-  }, []);
-  
-  // Add a new function to directly import model state (nodes and edges) for advanced use cases
-  const importModelState = useCallback(() => {
-    // Create a file input element to import raw JSON state
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = (e: Event) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const modelData = JSON.parse(event.target?.result as string);
-            
-            // Check if this is a valid model state
-            if (modelData.nodes && Array.isArray(modelData.nodes) && 
-                modelData.edges && Array.isArray(modelData.edges)) {
-              // Create a snapshot with the imported nodes and edges
-              dispatch({ 
-                type: EventTypes.EventSourcing.CREATE_SNAPSHOT, 
-                payload: {
-                  snapshotNodes: modelData.nodes,
-                  snapshotEdges: modelData.edges,
-                  snapshotIndex: 0
-                }
-              });
-              console.log(`Imported direct model state with ${modelData.nodes.length} nodes and ${modelData.edges.length} edges`);
-              alert(`Successfully imported model state with ${modelData.nodes.length} nodes and ${modelData.edges.length} edges.`);
-            } else {
-              throw new Error('Invalid model state format');
-            }
-          } catch (error) {
-            console.error('Failed to parse model state:', error);
-            alert('Failed to import model state. Please ensure the file contains valid nodes and edges arrays.');
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
-  }, []);
-
-  const onCompressSnapshot = useCallback(() => {
-    // Dispatch CREATE_SNAPSHOT with the current state
-    dispatch({
-      type: EventTypes.EventSourcing.CREATE_SNAPSHOT,
-      payload: {
-        snapshotNodes: nodes,
-        snapshotEdges: edges, // Use edges from the current state
-        snapshotIndex: currentEventIndex,
-      },
-    });
-  }, [nodes, edges, currentEventIndex]);
-
-
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    const filteredChanges = changes.filter(change => {
-      if (change.type === 'position') {
-        const node = nodes.find(n => n.id === change.id);
-        return node?.type !== 'swimlane';
-      }
-      return true;
-    });
-
-    // Track node selection for HistoryPanel details tab
-    if (changes.some(change => change.type === 'select')) {
-      const selectChange = changes.find(change => change.type === 'select');
-      if (selectChange && selectChange.type === 'select') {
-        // If a node is selected, clear any selected edge
-        if (selectChange.selected) {
-          setSelectedNodeId(selectChange.id);
-          setSelectedEdgeId(null);
-        } else {
-          setSelectedNodeId(null);
-        }
-      }
-    }
-    
-    const mappedChanges = filteredChanges.map(change => {
-      if (change.type === 'position' && change.position) {
-        const node = nodes.find(n => n.id === change.id);
-        if (node) {
-          // Apply constraints based on node type
-          if (node.type === 'block') {
-            // Blocks can only move horizontally
-            return { ...change, position: { x: change.position.x, y: node.position.y } };
-          } else if (node.type === 'trigger' || node.type === 'command' || 
-                    node.type === 'event' || node.type === 'view') {
-            // New node types can move freely
-            return change;
-          }
-        }
-      }
-      return change;
-    });
-
-    if (mappedChanges.length > 0) {
-      dispatchNodeChanges(mappedChanges);
-    }
-  }, [dispatchNodeChanges, nodes]);
-
-  // Handle moving specific node types
-  const handleNodeMove = useCallback((nodeId: string, position: { x: number; y: number }) => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (node) {
-      if (node.type === 'block') {
-        dispatchMoveBlock(nodeId, { x: position.x, y: node.position.y });
-      } else if (node.type === 'trigger' || node.type === 'command' || 
-                node.type === 'event' || node.type === 'view') {
-        dispatchMoveNode(nodeId, position);
-      }
-    }
-  }, [nodes, dispatchMoveBlock, dispatchMoveNode]);
-
-  const onNodeDragStop = useCallback((_: React.MouseEvent, node: any) => {
-    handleNodeMove(node.id, node.position);
-  }, [handleNodeMove]);
-
   // Function to add a new swimlane with specified kind
-  const addSwimlane = useCallback((kind = 'event') => {
+  const addSwimlane = useCallback((kind: string) => {
     const id = nanoid();
-    const swimlaneWidth = 900; // Wider to accommodate multiple blocks horizontally
-    const swimlaneHeight = 200; // Fixed height for consistency
-    const verticalGap = 50;  // Gap between swimlanes
-    
-    // Find existing swimlanes to calculate vertical position
-    const swimlanes = nodes.filter(node => node.type === 'swimlane');
-    
-    // Calculate Y position based on existing swimlanes
-    // Position new swimlane below all existing swimlanes
-    let yPosition = 50; // Default Y position if no swimlanes exist
-    
-    if (swimlanes.length > 0) {
-      // Find the lowest swimlane and position below it
-      yPosition = Math.max(...swimlanes.map(sl => {
-        const height = parseFloat(sl.style?.height) || swimlaneHeight;
-        return sl.position.y + height;
-      })) + verticalGap;
-    }
-
     const newSwimlane = {
       id,
       type: 'swimlane',
-      position: { x: 100, y: yPosition },
-      style: { width: swimlaneWidth, height: swimlaneHeight },
-      data: { 
-        label: `${kind.charAt(0).toUpperCase() + kind.slice(1)} Lane`,
-        kind: kind // Store swimlane kind
+      position: { x: 100, y: 100 + nodes.filter(n => n.type === 'swimlane').length * 200 },
+      style: {
+        width: 800,
+        height: 150,
+        backgroundColor: kind === 'event' ? '#fff8e1' : 
+                        kind === 'command_view' ? '#e3f2fd' : 
+                        kind === 'trigger' ? '#e8f5e9' : '#f5f5f5',
+        border: '1px dashed #aaa',
+        borderRadius: '5px',
+        padding: '10px'  
       },
-      // Prevent horizontal dragging, only allow vertical repositioning
-      dragHandle: '.vertical-drag-handle' // Will add this class to a drag handle
+      data: { 
+        label: `${kind.charAt(0).toUpperCase() + kind.slice(1).replace('_', ' & ')} Swimlane`,
+        kind: kind // Store the kind in the swimlane data
+      }
     };
-
-    dispatchAddSwimlane(newSwimlane);
-  }, [nodes, dispatchAddSwimlane]);
-
-  // Function to add a new trigger node
+    
+    dispatch({
+      type: EventTypes.ModelingEditor.ADD_SWIMLANE,
+      payload: newSwimlane
+    });
+    
+    // Automatically select the new swimlane
+    setSelectedSwimlaneId(id);
+  }, [nodes, dispatch]);
+  
+  // Dispatch functions for different node types
+  const dispatchAddEvent = useCallback((node: any) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.ADD_EVENT,
+      payload: node
+    });
+  }, [dispatch]);
+  
+  const dispatchAddView = useCallback((node: any) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.ADD_VIEW,
+      payload: node
+    });
+  }, [dispatch]);
+  
+  const dispatchAddCommand = useCallback((node: any) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.ADD_COMMAND,
+      payload: node
+    });
+  }, [dispatch]);
+  
+  const dispatchAddTrigger = useCallback((node: any) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.ADD_TRIGGER,
+      payload: node
+    });
+  }, [dispatch]);
+  
+  // Function to add a new trigger node within selected swimlane
   const addTrigger = useCallback(() => {
+    // Require a selected swimlane
+    if (!selectedSwimlaneId) {
+      console.warn('No swimlane selected. Please select a swimlane first.');
+      alert('Please select a swimlane first before adding a Trigger.');
+      return;
+    }
+    
+    // Find the selected swimlane
+    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    if (!swimlane) {
+      console.warn('Selected swimlane not found');
+      return;
+    }
+    
+    // Validate swimlane kind - triggers can only be added to trigger lanes
+    if (swimlane.data?.kind !== 'trigger') {
+      console.warn(`Cannot add Trigger to ${swimlane.data?.kind} swimlane`);
+      alert(`Cannot add a Trigger to this swimlane type. Triggers must be in a Trigger swimlane.`);
+      return;
+    }
+    
     const id = nanoid();
+    // Calculate position within the swimlane
+    const xOffset = 50; // Offset from the left edge of swimlane
+    const yOffset = 50; // Offset from the top edge of swimlane
+    
+    // Find existing blocks in this swimlane to position horizontally
+    const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
+    const blockGap = 160; // Horizontal gap between blocks
+    
+    // Position new block after the last block in this lane
+    const xPosition = blocksInLane.length > 0 ?
+      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
+      swimlane.position.x + xOffset;
+      
     const newTrigger = {
       id,
       type: 'trigger',
-      position: { x: 100, y: 100 },
-      data: {
+      position: { 
+        x: xPosition, 
+        y: swimlane.position.y + yOffset 
+      },
+      data: { 
         label: 'New Trigger',
         triggerType: 'user',
-        actor: ''
-      }
+        condition: '',
+        schedule: ''
+      },
+      // Link to parent swimlane
+      parentId: selectedSwimlaneId,
+      extent: 'parent' // Constrain to parent boundaries
     };
 
     dispatchAddTrigger(newTrigger);
-  }, [dispatchAddTrigger]);
-
-// ... (rest of the code remains the same)
-  // Function to add a new command node
+  }, [dispatchAddTrigger, selectedSwimlaneId, nodes]);
+  
+  // Function to add a new command node within selected swimlane
   const addCommand = useCallback(() => {
+    // Require a selected swimlane
+    if (!selectedSwimlaneId) {
+      console.warn('No swimlane selected. Please select a swimlane first.');
+      alert('Please select a swimlane first before adding a Command.');
+      return;
+    }
+    
+    // Find the selected swimlane
+    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    if (!swimlane) {
+      console.warn('Selected swimlane not found');
+      return;
+    }
+    
+    // Validate swimlane kind - commands can only be added to command_view lanes
+    if (swimlane.data?.kind !== 'command_view') {
+      console.warn(`Cannot add Command to ${swimlane.data?.kind} swimlane`);
+      alert(`Cannot add a Command to this swimlane type. Commands must be in a Command & View swimlane.`);
+      return;
+    }
+    
     const id = nanoid();
+    // Calculate position within the swimlane
+    const xOffset = 50; // Offset from the left edge of swimlane
+    const yOffset = 50; // Offset from the top edge of swimlane
+    
+    // Find existing blocks in this swimlane to position horizontally
+    const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
+    const blockGap = 160; // Horizontal gap between blocks
+    
+    // Position new block after the last block in this lane
+    const xPosition = blocksInLane.length > 0 ?
+      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
+      swimlane.position.x + xOffset;
+      
     const newCommand = {
       id,
       type: 'command',
-      position: { x: 250, y: 100 },
+      position: { 
+        x: xPosition, 
+        y: swimlane.position.y + yOffset 
+      },
       data: { 
         label: 'New Command',
         parameters: {},
-        validation: {},
-        preconditions: []
-      }
+        authorization: 'user',
+        validation: []
+      },
+      // Link to parent swimlane
+      parentId: selectedSwimlaneId,
+      extent: 'parent' // Constrain to parent boundaries
     };
 
     dispatchAddCommand(newCommand);
-  }, [dispatchAddCommand]);
+  }, [dispatchAddCommand, selectedSwimlaneId, nodes]);
 
-  // Function to add a new event node
+  // Function to add a new event node within selected swimlane
   const addEvent = useCallback(() => {
+    // Require a selected swimlane
+    if (!selectedSwimlaneId) {
+      console.warn('No swimlane selected. Please select a swimlane first.');
+      alert('Please select a swimlane first before adding an Event.');
+      return;
+    }
+    
+    // Find the selected swimlane
+    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    if (!swimlane) {
+      console.warn('Selected swimlane not found');
+      return;
+    }
+    
+    // Validate swimlane kind - events can only be added to event lanes
+    if (swimlane.data?.kind !== 'event') {
+      console.warn(`Cannot add Event to ${swimlane.data?.kind} swimlane`);
+      alert(`Cannot add an Event to this swimlane type. Events must be in an Event swimlane.`);
+      return;
+    }
+    
     const id = nanoid();
+    // Calculate position within the swimlane
+    const xOffset = 50; // Offset from the left edge of swimlane
+    const yOffset = 50; // Offset from the top edge of swimlane
+    
+    // Find existing blocks in this swimlane to position horizontally
+    const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
+    const blockGap = 160; // Horizontal gap between blocks
+    
+    // Position new block after the last block in this lane
+    const xPosition = blocksInLane.length > 0 ?
+      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
+      swimlane.position.x + xOffset;
+      
     const newEvent = {
       id,
       type: 'event',
-      position: { x: 400, y: 100 },
+      position: { 
+        x: xPosition, 
+        y: swimlane.position.y + yOffset 
+      },
       data: { 
         label: 'New Event',
         payload: {},
         version: '1.0',
         timestamp: new Date().toISOString(),
         isExternalEvent: false
-      }
+      },
+      // Link to parent swimlane
+      parentId: selectedSwimlaneId,
+      extent: 'parent' // Constrain to parent boundaries
     };
 
     dispatchAddEvent(newEvent);
-  }, [dispatchAddEvent]);
+  }, [dispatchAddEvent, selectedSwimlaneId, nodes]);
 
-  // Function to add a new view node
+  // Function to add a new view node within selected swimlane
   const addView = useCallback(() => {
+    // Require a selected swimlane
+    if (!selectedSwimlaneId) {
+      console.warn('No swimlane selected. Please select a swimlane first.');
+      alert('Please select a swimlane first before adding a View.');
+      return;
+    }
+    
+    // Find the selected swimlane
+    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    if (!swimlane) {
+      console.warn('Selected swimlane not found');
+      return;
+    }
+    
+    // Validate swimlane kind - views can only be added to command_view lanes
+    if (swimlane.data?.kind !== 'command_view') {
+      console.warn(`Cannot add View to ${swimlane.data?.kind} swimlane`);
+      alert(`Cannot add a View to this swimlane type. Views must be in a Command & View swimlane.`);
+      return;
+    }
+    
     const id = nanoid();
+    // Calculate position within the swimlane
+    const xOffset = 50; // Offset from the left edge of swimlane
+    const yOffset = 50; // Offset from the top edge of swimlane
+    
+    // Find existing blocks in this swimlane to position horizontally
+    const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
+    const blockGap = 160; // Horizontal gap between blocks
+    
+    // Position new block after the last block in this lane
+    const xPosition = blocksInLane.length > 0 ?
+      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
+      swimlane.position.x + xOffset;
+    
     const newView = {
       id,
       type: 'view',
-      position: { x: 550, y: 100 },
+      position: { 
+        x: xPosition, 
+        y: swimlane.position.y + yOffset 
+      },
       data: { 
         label: 'New View',
         sourceEvents: [],
         viewType: 'read',
         refreshPattern: 'on-demand',
         permissions: []
-      }
+      },
+      // Link to parent swimlane
+      parentId: selectedSwimlaneId,
+      extent: 'parent' // Constrain to parent boundaries
     };
 
     dispatchAddView(newView);
-  }, [dispatchAddView]);
+  }, [dispatchAddView, selectedSwimlaneId, nodes]);
 
-  const customNodeTypes = React.useMemo(() => ({
+  // Handle node selection
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      // Check if this is a selection change
+      const selectionChange = changes.find(change => 
+        change.type === 'select' && (change as NodeSelectionChange).selected === true
+      ) as NodeSelectionChange | undefined;
+      
+      // If a node was selected, update the selectedSwimlaneId if it's a swimlane
+      if (selectionChange) {
+        const selectedNode = nodes.find(n => n.id === selectionChange.id);
+        if (selectedNode && selectedNode.type === 'swimlane') {
+          setSelectedSwimlaneId(selectedNode.id);
+          setSelectedNodeId(selectedNode.id);
+        } else if (selectedNode) {
+          // For non-swimlane nodes, just track the selection
+          setSelectedNodeId(selectedNode.id);
+        }
+      }
+      
+      dispatch({
+        type: EventTypes.ReactFlow.CHANGE_NODES,
+        payload: changes
+      });
+    },
+    [dispatch, nodes]
+  );
+  
+  // Handle edge changes
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      dispatch({
+        type: EventTypes.ReactFlow.CHANGE_EDGES,
+        payload: changes
+      });
+    },
+    [dispatch]
+  );
+  
+  // Handle node drag stop
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: any) => {
+      dispatch({
+        type: EventTypes.ModelingEditor.MOVE_NODE,
+        payload: {
+          nodeId: node.id,
+          position: node.position
+        }
+      });
+    },
+    [dispatch]
+  );
+  
+  // Handle connections between nodes
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      // Find the source and target nodes
+      const sourceNode = nodes.find(node => node.id === connection.source);
+      const targetNode = nodes.find(node => node.id === connection.target);
+      
+      // Validate the connection against event modeling patterns
+      const validationResult = isValidConnection(sourceNode || null, targetNode || null);
+      
+      if (validationResult.valid) {
+        // Enhance the connection with pattern type
+        const patternType = getConnectionPatternType(sourceNode || null, targetNode || null);
+        const enhancedConnection = {
+          ...connection,
+          data: {
+            patternType,
+            priority: EdgePriority.MEDIUM // Using MEDIUM instead of NORMAL which doesn't exist
+          }
+        };
+        
+        dispatch({
+          type: EventTypes.ReactFlow.NEW_CONNECTION,
+          payload: enhancedConnection
+        });
+      } else {
+        console.warn('Invalid connection attempted', connection);
+        alert('This connection is not allowed based on event modeling patterns.');
+      }
+    },
+    [dispatch, nodes]
+  );
+  
+  // Functions for updating node properties
+  const dispatchUpdateNodeLabel = useCallback(
+    (nodeId: string, label: string) => {
+      dispatch({
+        type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL,
+        payload: { nodeId, label }
+      });
+    },
+    [dispatch]
+  );
+  
+  const dispatchUpdateCommandParameters = useCallback(
+    (nodeId: string, parameters: Record<string, string>) => {
+      dispatch({
+        type: EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS,
+        payload: { nodeId, parameters }
+      });
+    },
+    [dispatch]
+  );
+  
+  const dispatchUpdateEventPayload = useCallback(
+    (nodeId: string, payload: Record<string, any>) => {
+      dispatch({
+        type: EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD,
+        payload: { nodeId, payload }
+      });
+    },
+    [dispatch]
+  );
+  
+  const dispatchUpdateViewSources = useCallback(
+    (nodeId: string, sourceEvents: string[]) => {
+      dispatch({
+        type: EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES,
+        payload: { nodeId, sourceEvents }
+      });
+    },
+    [dispatch]
+  );
+  
+  // Time travel functionality
+  const onTimeTravel = useCallback(
+    (index: number) => {
+      dispatch({
+        type: EventTypes.EventSourcing.TIME_TRAVEL,
+        payload: { index }
+      });
+    },
+    [dispatch]
+  );
+  
+  // Export events to JSON
+  const onExportEvents = useCallback(() => {
+    const modelState = {
+      nodes,
+      edges,
+      events,
+      currentEventIndex
+    };
+    
+    const dataStr = JSON.stringify(modelState, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = 'event-model.json';
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  }, [nodes, edges, events, currentEventIndex]);
+  
+  // Import events from JSON
+  const onImportEvents = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          const parsedContent = JSON.parse(content);
+          
+          // Check if this is a legacy format (just events array)
+          if (Array.isArray(parsedContent)) {
+            dispatch({
+              type: EventTypes.EventSourcing.LOAD_EVENTS,
+              payload: parsedContent
+            });
+            alert('Legacy event format imported successfully!');
+          } 
+          // Check if this is our enhanced format with nodes, edges, events
+          else if (parsedContent.nodes && parsedContent.edges && parsedContent.events) {
+            dispatch({
+              type: EventTypes.EventSourcing.LOAD_EVENTS,
+              payload: parsedContent.events
+            });
+            alert('Model imported successfully!');
+          } else {
+            alert('Unknown file format. Please use a valid event model file.');
+          }
+        } catch (err) {
+          console.error('Error parsing JSON:', err);
+          alert('Error parsing JSON file. Please ensure it is a valid JSON file.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [dispatch]);
+  
+  // Create a snapshot to compress history
+  const onCompressSnapshot = useCallback(() => {
+    if (currentEventIndex < 0) {
+      alert('No events to compress.');
+      return;
+    }
+    
+    dispatch({
+      type: EventTypes.EventSourcing.CREATE_SNAPSHOT,
+      payload: {
+        snapshotNodes: nodes,
+        snapshotEdges: edges,
+        snapshotIndex: currentEventIndex
+      }
+    });
+    
+    alert('History compressed successfully! Previous events have been consolidated into a snapshot.');
+  }, [dispatch, nodes, edges, currentEventIndex]);
+  
+  // Import direct model state (advanced feature)
+  const importModelState = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          const parsedContent = JSON.parse(content);
+          
+          // Direct model state import - for advanced use cases
+          if (parsedContent.nodes && parsedContent.edges) {
+            // Create synthetic events from the model state
+            const syntheticEvents: IntentionEventType[] = [];
+            
+            // Add swimlanes first
+            parsedContent.nodes
+              .filter((n: any) => n.type === 'swimlane')
+              .forEach((node: any) => {
+                syntheticEvents.push({
+                  type: EventTypes.ModelingEditor.ADD_SWIMLANE,
+                  payload: node
+                });
+              });
+            
+            // Then add blocks
+            parsedContent.nodes
+              .filter((n: any) => n.type !== 'swimlane')
+              .forEach((node: any) => {
+                let eventType;
+                switch (node.type) {
+                  case 'trigger':
+                    eventType = EventTypes.ModelingEditor.ADD_TRIGGER;
+                    break;
+                  case 'command':
+                    eventType = EventTypes.ModelingEditor.ADD_COMMAND;
+                    break;
+                  case 'event':
+                    eventType = EventTypes.ModelingEditor.ADD_EVENT;
+                    break;
+                  case 'view':
+                    eventType = EventTypes.ModelingEditor.ADD_VIEW;
+                    break;
+                  default:
+                    eventType = EventTypes.ModelingEditor.ADD_BLOCK;
+                }
+                
+                syntheticEvents.push({
+                  type: eventType,
+                  payload: node
+                });
+              });
+            
+            // Finally add connections
+            parsedContent.edges.forEach((edge: any) => {
+              syntheticEvents.push({
+                type: EventTypes.ReactFlow.NEW_CONNECTION,
+                payload: {
+                  source: edge.source,
+                  target: edge.target,
+                  sourceHandle: edge.sourceHandle,
+                  targetHandle: edge.targetHandle
+                }
+              });
+            });
+            
+            // Load the synthetic events
+            dispatch({
+              type: EventTypes.EventSourcing.LOAD_EVENTS,
+              payload: syntheticEvents
+            });
+            
+            alert('Model state imported successfully!');
+          } else {
+            alert('Invalid model state format. Please use a valid JSON export.');
+          }
+        } catch (err) {
+          console.error('Error parsing JSON:', err);
+          alert('Error parsing JSON file. Please ensure it is a valid JSON file.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [dispatch]);
+
+  const customNodeTypes = useMemo(() => ({
     swimlane: (nodeProps: any) => (
-      <SwimlaneNode
-        {...nodeProps}
-        dispatchAddBlock={dispatchAddBlock}
+      <SwimlaneNode 
+        {...nodeProps} 
+        dispatchAddBlock={(blockData) => {
+          // Based on block type, dispatch the appropriate action
+          switch(blockData.type) {
+            case 'trigger':
+              dispatch({
+                type: EventTypes.ModelingEditor.ADD_TRIGGER,
+                payload: blockData
+              });
+              break;
+            case 'command':
+              dispatch({
+                type: EventTypes.ModelingEditor.ADD_COMMAND,
+                payload: blockData
+              });
+              break;
+            case 'event':
+              dispatch({
+                type: EventTypes.ModelingEditor.ADD_EVENT,
+                payload: blockData
+              });
+              break;
+            case 'view':
+              dispatch({
+                type: EventTypes.ModelingEditor.ADD_VIEW,
+                payload: blockData
+              });
+              break;
+            default:
+              console.error(`Unknown block type: ${blockData.type}`);
+          }
+        }}
         dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
       />
     ),
     block: (nodeProps: any) => (
-      <BlockNode
-        {...nodeProps}
-        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
-      />
+      <BlockNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} />
     ),
     // Add new node types
     trigger: (nodeProps: any) => (
-      <TriggerNode
-        {...nodeProps}
-        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
-      />
+      <TriggerNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} />
     ),
     command: (nodeProps: any) => (
-      <CommandNode
-        {...nodeProps}
-        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
-        dispatchUpdateCommandParameters={dispatchUpdateCommandParameters}
-      />
+      <CommandNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onParametersChange={dispatchUpdateCommandParameters} />
     ),
     event: (nodeProps: any) => (
-      <EventNode
-        {...nodeProps}
-        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
-        dispatchUpdateEventPayload={dispatchUpdateEventPayload}
-      />
+      <EventNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onPayloadChange={dispatchUpdateEventPayload} />
     ),
     view: (nodeProps: any) => (
-      <ViewNode
-        {...nodeProps}
-        dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
-        dispatchUpdateViewSources={dispatchUpdateViewSources}
-      />
+      <ViewNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onSourcesChange={dispatchUpdateViewSources} />
     ),
-  }), [dispatchAddBlock, dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources]);
+  }), [dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources]);
 
   // Define custom edge types with appropriate styling and enhanced edge data
   const edgeTypes = useMemo(() => ({
-    'command-pattern': ({ id, source, target, markerEnd, data }: Edge) => {
+    'command-pattern': (props: any) => {
+      const { source, target } = props;
       const sourceNode = nodes.find(n => n.id === source);
       const targetNode = nodes.find(n => n.id === target);
       const edgeStyle = getEdgeStyle(sourceNode || null, targetNode || null);
       
-      // Enhanced tooltip with edge data if available
-      const title = data?.condition ? `Condition: ${data.condition}` : 
-                   data?.notes ? `Notes: ${data.notes}` : '';
-      
+      // Instead of using BaseEdge directly with potentially incompatible types,
+      // pass our custom props through EdgeProps as provided by React Flow
       return (
-        <BaseEdge
-          id={id}
-          source={source}
-          target={target}
-          style={edgeStyle}
-          markerEnd={markerEnd}
-          label={data?.condition ? '?' : undefined}
-          labelStyle={{ fill: '#777', fontSize: '12px' }}
-          labelBgStyle={{ fill: '#f5f5f5' }}
-          title={title}
-        />
+        <g>
+          {/* Custom edge path */}
+          <path
+            className="react-flow__edge-path"
+            d={props.pathPoints || `M${props.sourceX},${props.sourceY} L${props.targetX},${props.targetY}`}
+            style={edgeStyle}
+          />
+          {/* Edge label if condition exists */}
+          {props.data?.condition && (
+            <text
+              className="react-flow__edge-text"
+              x={(props.sourceX + props.targetX) / 2}
+              y={(props.sourceY + props.targetY) / 2 - 10}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              style={{ fill: '#777', fontSize: '12px', background: '#f5f5f5' }}
+            >
+              ?
+            </text>
+          )}
+        </g>
       );
     },
   }), [nodes]);
@@ -984,7 +1202,7 @@ const App = () => {
           onNodesChange={onNodesChange}
           onNodeDragStop={onNodeDragStop}
           onEdgesChange={onEdgesChange}
-          edgeTypes={edgeTypes}
+          edgeTypes={edgeTypes} /* This ensures edgeTypes is used */
           onConnect={onConnect}
           fitView
           attributionPosition="top-right"
