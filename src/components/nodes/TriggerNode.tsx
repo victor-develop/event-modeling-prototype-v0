@@ -1,4 +1,5 @@
-import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
+import React, { memo } from 'react';
+import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
 
 interface TriggerNodeProps {
@@ -17,52 +18,20 @@ const TriggerNode: React.FC<TriggerNodeProps> = ({
   selected,
   onLabelChange,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [label, setLabel] = useState(data.label);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Only update local label state when data.label changes from outside
-  // This prevents overriding our local edits when we're updating the label
-  useEffect(() => {
-    console.log('TriggerNode useEffect data.label changed', { dataLabel: data.label, currentLabel: label });
-    setLabel(data.label);
-  }, [data.label]);
-
-  useEffect(() => {
-    if (isEditing) {
-      inputRef.current?.focus();
-    }
-  }, [isEditing]);
-
-  const handleLabelChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('TriggerNode onLabelChange BEFORE', { id, currentLabel: label, newValue: e.target.value });
-    setLabel(e.target.value);
-    console.log('TriggerNode onLabelChange AFTER', { id, updatedLabel: e.target.value });
-  }, [id, label]);
-
-  const handleDoubleClick = useCallback(() => {
-    setIsEditing(true);
-  }, []);
-
-  const handleBlur = useCallback(() => {
-    console.log('TriggerNode handleBlur BEFORE', { id, label, dataLabel: data.label, isEditing });
-    setIsEditing(false);
-    // Always update the label when editing is complete
-    console.log('TriggerNode calling onLabelChange on blur', { id, label });
-    onLabelChange(id, label);
-    console.log('TriggerNode handleBlur AFTER', { id, label, dataLabel: data.label });
-  }, [id, label, data.label, onLabelChange, isEditing]);
-
-  const handleKeyDown = useCallback((evt: React.KeyboardEvent<HTMLInputElement>) => {
-    if (evt.key === 'Enter') {
-      console.log('TriggerNode handleKeyDown Enter BEFORE', { id, label, dataLabel: data.label, isEditing });
-      setIsEditing(false);
-      // Always update the label when pressing Enter
-      console.log('TriggerNode calling onLabelChange on Enter', { id, label });
-      onLabelChange(id, label);
-      console.log('TriggerNode handleKeyDown Enter AFTER', { id, label, dataLabel: data.label });
-    }
-  }, [id, label, data.label, onLabelChange, isEditing]);
+  const {
+    label,
+    isEditing,
+    inputRef,
+    handleLabelChange,
+    handleDoubleClick,
+    handleBlur,
+    handleKeyDown
+  } = useNodeLabelEdit({
+    id,
+    initialLabel: data.label,
+    onLabelChange,
+    nodeType: 'TriggerNode'
+  });
 
   const getTriggerIcon = () => {
     switch (data.triggerType) {
