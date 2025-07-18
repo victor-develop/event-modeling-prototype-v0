@@ -279,3 +279,8 @@ To get this project up and running on your local machine, follow these steps:
 1. Use the History panel to navigate through previous states
 2. View pattern statistics and details in the respective tabs
 3. Select nodes or edges to inspect their detailed properties
+
+## Todos
+- [ ] Trigger Lane should supports User Interface & Processor kind of building blocks
+- [ ] View node should support both incoming connections and outgoing connections (to User Interface or Processor kind of building blocks)
+- [ ] Do not fire a MOVE_NODE event when a node's actual position is NOT moved
