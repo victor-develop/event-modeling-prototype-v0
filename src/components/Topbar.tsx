@@ -6,6 +6,8 @@ interface TopbarProps {
   onAddCommand: () => void;
   onAddEvent: () => void;
   onAddView: () => void;
+  onAddUI?: () => void;
+  onAddProcessor?: () => void;
   onExportEvents: () => void;
   onImportEvents: () => void;
   onCompressSnapshot: () => void;
@@ -18,6 +20,8 @@ const Topbar: React.FC<TopbarProps> = ({
   onAddCommand,
   onAddEvent,
   onAddView,
+  onAddUI,
+  onAddProcessor,
   onExportEvents, 
   onImportEvents, 
   onCompressSnapshot,
@@ -67,18 +71,28 @@ const Topbar: React.FC<TopbarProps> = ({
 
         <div style={{ marginBottom: '8px' }}>
           <span style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Building Blocks</span>
-          <button onClick={onAddTrigger} style={{ marginRight: '5px', backgroundColor: '#3498db', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+          <button onClick={onAddTrigger} style={{ marginRight: '5px', backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
             Trigger
           </button>
-          <button onClick={onAddCommand} style={{ marginRight: '5px', backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+          <button onClick={onAddCommand} style={{ marginRight: '5px', backgroundColor: '#3498db', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
             Command
           </button>
-          <button onClick={onAddEvent} style={{ marginRight: '5px', backgroundColor: '#f39c12', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+          <button onClick={onAddEvent} style={{ marginRight: '5px', backgroundColor: '#f1c40f', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
             Event
           </button>
-          <button onClick={onAddView} style={{ backgroundColor: '#2ecc71', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+          <button onClick={onAddView} style={{ marginRight: '5px', backgroundColor: '#95a5a6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
             View
           </button>
+          {onAddUI && (
+            <button onClick={onAddUI} style={{ marginRight: '5px', backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+              UI
+            </button>
+          )}
+          {onAddProcessor && (
+            <button onClick={onAddProcessor} style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+              Processor
+            </button>
+          )}
         </div>
 
         <div>

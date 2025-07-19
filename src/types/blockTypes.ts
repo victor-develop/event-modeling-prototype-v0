@@ -45,7 +45,9 @@ export const BLOCK_KIND_COLORS: Record<string, string> = {
   'trigger': 'rgba(210, 250, 210, 0.8)', // Light green
   'command': 'rgba(200, 230, 255, 0.8)', // Light blue
   'event': 'rgba(255, 240, 150, 0.8)', // Light yellow
-  'view': 'rgba(240, 240, 240, 0.8)'  // Light gray
+  'view': 'rgba(240, 240, 240, 0.8)',  // Light gray
+  'UI': 'rgba(255, 220, 220, 0.8)', // Light red/pink
+  'Processor': 'rgba(230, 210, 255, 0.8)' // Light purple
 };
 
 /**
@@ -55,7 +57,9 @@ export const BLOCK_KIND_BORDERS: Record<string, string> = {
   'trigger': '#27ae60', // Green
   'command': '#3498db', // Blue
   'event': '#f1c40f', // Yellow
-  'view': '#95a5a6'  // Gray
+  'view': '#95a5a6',  // Gray
+  'UI': '#e74c3c', // Red
+  'Processor': '#9b59b6' // Purple
 };
 
 /**

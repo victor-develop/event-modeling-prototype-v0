@@ -37,6 +37,8 @@ import TriggerNode from './components/nodes/TriggerNode';
 import CommandNode from './components/nodes/CommandNode';
 import EventNode from './components/nodes/EventNode';
 import ViewNode from './components/nodes/ViewNode';
+import UINode from './components/nodes/UINode';
+import ProcessorNode from './components/nodes/ProcessorNode';
 import { createCustomNodeTypes } from './flow/customNodeTypes.tsx';
 import { createCustomEdgeTypes } from './flow/customEdgeTypes.tsx';
 
@@ -131,6 +133,21 @@ const App = () => {
   const dispatchAddTrigger = useCallback((node: any) => {
     dispatch({
       type: EventTypes.ModelingEditor.ADD_TRIGGER,
+      payload: node
+    });
+  }, [dispatch]);
+  
+  // Dispatch functions for UI and Processor nodes
+  const dispatchAddUI = useCallback((node: any) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.ADD_UI,
+      payload: node
+    });
+  }, [dispatch]);
+  
+  const dispatchAddProcessor = useCallback((node: any) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.ADD_PROCESSOR,
       payload: node
     });
   }, [dispatch]);
@@ -346,7 +363,7 @@ const App = () => {
     const xPosition = blocksInLane.length > 0 ?
       Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
       swimlane.position.x + xOffset;
-    
+      
     const newView = {
       id,
       type: 'view',
@@ -368,6 +385,118 @@ const App = () => {
 
     dispatchAddView(newView);
   }, [dispatchAddView, selectedSwimlaneId, nodes]);
+  
+  // Function to add a new UI node within selected swimlane
+  const addUI = useCallback(() => {
+    // Require a selected swimlane
+    if (!selectedSwimlaneId) {
+      console.warn('No swimlane selected. Please select a swimlane first.');
+      alert('Please select a swimlane first before adding a UI block.');
+      return;
+    }
+    
+    // Find the selected swimlane
+    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    if (!swimlane) {
+      console.warn('Selected swimlane not found');
+      return;
+    }
+    
+    // Validate swimlane kind - UI can only be added to trigger lanes
+    if (swimlane.data?.kind !== 'trigger') {
+      console.warn(`Cannot add UI to ${swimlane.data?.kind} swimlane`);
+      alert(`Cannot add a UI block to this swimlane type. UI blocks must be in a Trigger swimlane.`);
+      return;
+    }
+    
+    const id = nanoid();
+    // Calculate position within the swimlane
+    const xOffset = 50; // Offset from the left edge of swimlane
+    const yOffset = 50; // Offset from the top edge of swimlane
+    
+    // Find existing blocks in this swimlane to position horizontally
+    const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
+    const blockGap = 160; // Horizontal gap between blocks
+    
+    // Position new block after the last block in this lane
+    const xPosition = blocksInLane.length > 0 ?
+      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
+      swimlane.position.x + xOffset;
+      
+    const newUI = {
+      id,
+      type: 'UI',
+      position: { 
+        x: xPosition, 
+        y: swimlane.position.y + yOffset 
+      },
+      data: { 
+        label: 'New UI',
+        kind: 'UI'
+      },
+      // Link to parent swimlane
+      parentId: selectedSwimlaneId,
+      extent: 'parent' // Constrain to parent boundaries
+    };
+
+    dispatchAddUI(newUI);
+  }, [dispatchAddUI, selectedSwimlaneId, nodes]);
+  
+  // Function to add a new Processor node within selected swimlane
+  const addProcessor = useCallback(() => {
+    // Require a selected swimlane
+    if (!selectedSwimlaneId) {
+      console.warn('No swimlane selected. Please select a swimlane first.');
+      alert('Please select a swimlane first before adding a Processor block.');
+      return;
+    }
+    
+    // Find the selected swimlane
+    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    if (!swimlane) {
+      console.warn('Selected swimlane not found');
+      return;
+    }
+    
+    // Validate swimlane kind - Processor can only be added to trigger lanes
+    if (swimlane.data?.kind !== 'trigger') {
+      console.warn(`Cannot add Processor to ${swimlane.data?.kind} swimlane`);
+      alert(`Cannot add a Processor block to this swimlane type. Processor blocks must be in a Trigger swimlane.`);
+      return;
+    }
+    
+    const id = nanoid();
+    // Calculate position within the swimlane
+    const xOffset = 50; // Offset from the left edge of swimlane
+    const yOffset = 50; // Offset from the top edge of swimlane
+    
+    // Find existing blocks in this swimlane to position horizontally
+    const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
+    const blockGap = 160; // Horizontal gap between blocks
+    
+    // Position new block after the last block in this lane
+    const xPosition = blocksInLane.length > 0 ?
+      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
+      swimlane.position.x + xOffset;
+      
+    const newProcessor = {
+      id,
+      type: 'Processor',
+      position: { 
+        x: xPosition, 
+        y: swimlane.position.y + yOffset 
+      },
+      data: { 
+        label: 'New Processor',
+        kind: 'Processor'
+      },
+      // Link to parent swimlane
+      parentId: selectedSwimlaneId,
+      extent: 'parent' // Constrain to parent boundaries
+    };
+
+    dispatchAddProcessor(newProcessor);
+  }, [dispatchAddProcessor, selectedSwimlaneId, nodes]);
 
   // Handle node selection
   const onNodesChange = useCallback(
@@ -755,6 +884,8 @@ const edgeTypes = useMemo(() => createCustomEdgeTypes(), []);
         onAddCommand={addCommand}
         onAddEvent={addEvent}
         onAddView={addView}
+        onAddUI={addUI}
+        onAddProcessor={addProcessor}
         onExportEvents={onExportEvents}
         onImportEvents={onImportEvents}
         onCompressSnapshot={onCompressSnapshot}
