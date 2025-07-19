@@ -27,17 +27,17 @@ const Topbar: React.FC<TopbarProps> = ({
   onCompressSnapshot,
   onImportModelState
 }) => {
-  // State for selected swimlane kind
-  const [selectedSwimlaneKind, setSelectedSwimlaneKind] = React.useState<string>('event');
-  
-  // Handle swimlane kind change
-  const handleSwimlaneKindChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedSwimlaneKind(e.target.value);
+  // Handle add swimlane button clicks for different types
+  const handleAddEventSwimlane = () => {
+    onAddSwimlane('event');
   };
   
-  // Handle add swimlane button click
-  const handleAddSwimlane = () => {
-    onAddSwimlane(selectedSwimlaneKind);
+  const handleAddCommandViewSwimlane = () => {
+    onAddSwimlane('command_view');
+  };
+  
+  const handleAddTriggerSwimlane = () => {
+    onAddSwimlane('trigger');
   };
   return (
     <div
@@ -54,17 +54,23 @@ const Topbar: React.FC<TopbarProps> = ({
         <div style={{ marginBottom: '8px' }}>
           <span style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Layout</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <select 
-              value={selectedSwimlaneKind} 
-              onChange={handleSwimlaneKindChange}
-              style={{ padding: '3px', borderRadius: '3px' }}
+            <button 
+              onClick={handleAddEventSwimlane} 
+              style={{ marginRight: '5px', backgroundColor: '#f1c40f', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}
             >
-              <option value="event">Event Lane</option>
-              <option value="command_view">Command & View Lane</option>
-              <option value="trigger">Trigger Lane</option>
-            </select>
-            <button onClick={handleAddSwimlane} style={{ marginRight: '5px' }}>
-              Add Swimlane
+              Event Lane
+            </button>
+            <button 
+              onClick={handleAddCommandViewSwimlane} 
+              style={{ marginRight: '5px', backgroundColor: '#3498db', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}
+            >
+              Command & View Lane
+            </button>
+            <button 
+              onClick={handleAddTriggerSwimlane} 
+              style={{ marginRight: '5px', backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}
+            >
+              Trigger Lane
             </button>
           </div>
         </div>
