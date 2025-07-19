@@ -15,6 +15,28 @@ interface HistoryPanelProps {
   selectedEdgeId?: string | null;
 }
 
+// Component to display JSON details with syntax highlighting
+const JsonDetails: React.FC<{ data: any }> = ({ data }) => {
+  return (
+    <pre
+      style={{
+        backgroundColor: '#f5f5f5',
+        padding: '8px',
+        borderRadius: '4px',
+        fontSize: '11px',
+        overflow: 'auto',
+        maxHeight: '200px',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        border: '1px solid #ddd',
+        margin: '5px 0',
+      }}
+    >
+      {JSON.stringify(data, null, 2)}
+    </pre>
+  );
+};
+
 const HistoryPanel: React.FC<HistoryPanelProps> = ({
   events,
   currentEventIndex,
@@ -27,6 +49,15 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
 }) => {
   // State for active tab
   const [activeTab, setActiveTab] = useState<'history' | 'patterns' | 'details'>('history');
+  
+  // State to track expanded event details
+  const [expandedEventIndex, setExpandedEventIndex] = useState<number | null>(null);
+  
+  // Toggle expanded state for an event
+  const toggleEventDetails = useCallback((index: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the parent onClick (time travel)
+    setExpandedEventIndex(prevIndex => prevIndex === index ? null : index);
+  }, []);
   const handlePrev = useCallback(() => {
     if (currentEventIndex > -1) { // Allow going back to -1 (snapshot)
       onTimeTravel(currentEventIndex - 1);
@@ -250,9 +281,25 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   }}
                   onClick={() => onTimeTravel(index)}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
-                    <span style={{ marginRight: '5px' }}>{eventIcon}</span>
-                    <strong>{event.type.replace(/.*\./, '')}</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <span style={{ marginRight: '5px' }}>{eventIcon}</span>
+                      <strong>{event.type.replace(/.*\./, '')}</strong>
+                    </div>
+                    <button
+                      onClick={(e) => toggleEventDetails(index, e)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        padding: '2px 5px',
+                        borderRadius: '3px',
+                        backgroundColor: '#f0f0f0',
+                      }}
+                    >
+                      {expandedEventIndex === index ? 'Hide JSON' : 'Show JSON'}
+                    </button>
                   </div>
                   {event.payload && event.payload.id && <div style={{ fontSize: '12px', color: '#666' }}>ID: {event.payload.id}</div>}
                   {event.payload && event.payload.label && <div style={{ fontSize: '13px' }}>{event.payload.label}</div>}
@@ -260,6 +307,11 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     <div style={{ fontSize: '12px', color: '#666' }}>
                       {event.payload.source} → {event.payload.target}
                     </div>
+                  )}
+                  
+                  {/* Expandable JSON details */}
+                  {expandedEventIndex === index && event.payload && (
+                    <JsonDetails data={event.payload} />
                   )}
                 </div>
               );
