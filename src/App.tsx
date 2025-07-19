@@ -395,63 +395,6 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
 
 // --- End Event Sourcing Setup ---
 
-// Define edge types for React Flow
-const edgeTypes = {
-  'command-pattern': (props: any) => {
-    const { data } = props;
-    // Fix: Pass null nodes instead of just the pattern type
-    const edgeStyle = getEdgeStyle(null, null);
-    
-    // If we have a pattern type, use it to determine the style
-    if (data?.patternType) {
-      // Use the pattern-specific styling
-      if (data.patternType === ConnectionPattern.COMMAND_PATTERN) {
-        Object.assign(edgeStyle, {
-          stroke: '#333',
-          strokeWidth: 2,
-        });
-      } else if (data.patternType === ConnectionPattern.VIEW_PATTERN) {
-        Object.assign(edgeStyle, {
-          stroke: '#22a355',
-          strokeWidth: 2,
-          strokeDasharray: '5,5',
-        });
-      } else if (data.patternType === ConnectionPattern.AUTOMATION_PATTERN) {
-        Object.assign(edgeStyle, {
-          stroke: '#8844cc',
-          strokeWidth: 2,
-          strokeDasharray: '2,2',
-          opacity: 0.8,
-        });
-      }
-    }
-    
-    // pass our custom props through EdgeProps as provided by React Flow
-    return (
-      <g>
-        {/* Custom edge path */}
-        <path
-          className="react-flow__edge-path"
-          d={props.pathPoints || `M${props.sourceX},${props.sourceY} L${props.targetX},${props.targetY}`}
-          style={edgeStyle}
-        />
-        {/* Edge label if condition exists */}
-        {data?.condition && (
-          <text
-            className="react-flow__edge-text"
-            x={(props.sourceX + props.targetX) / 2}
-            y={(props.sourceY + props.targetY) / 2 - 10}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            style={{ fill: '#777', fontSize: '12px', background: '#f5f5f5' }}
-          >
-            ?
-          </text>
-        )}
-      </g>
-    );
-  },
-};
 
 const nodeClassName = (node: any): string => node.type;
 
@@ -911,45 +854,47 @@ const App = () => {
   );
   
   // Functions for updating node properties
-  const dispatchUpdateNodeLabel = useCallback(
-    (nodeId: string, label: string) => {
-      dispatch({
-        type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL,
-        payload: { nodeId, label }
-      });
-    },
-    [dispatch]
-  );
-  
-  const dispatchUpdateCommandParameters = useCallback(
-    (nodeId: string, parameters: Record<string, string>) => {
-      dispatch({
-        type: EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS,
-        payload: { nodeId, parameters }
-      });
-    },
-    [dispatch]
-  );
-  
-  const dispatchUpdateEventPayload = useCallback(
-    (nodeId: string, payload: Record<string, any>) => {
-      dispatch({
-        type: EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD,
-        payload: { nodeId, payload }
-      });
-    },
-    [dispatch]
-  );
-  
-  const dispatchUpdateViewSources = useCallback(
-    (nodeId: string, sourceEvents: string[]) => {
-      dispatch({
-        type: EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES,
-        payload: { nodeId, sourceEvents }
-      });
-    },
-    [dispatch]
-  );
+  // --- Memoized dispatchUpdate* functions for stable references ---
+const dispatchUpdateNodeLabel = useCallback(
+  (nodeId: string, label: string) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL,
+      payload: { nodeId, label }
+    });
+  },
+  [dispatch]
+);
+
+const dispatchUpdateCommandParameters = useCallback(
+  (nodeId: string, parameters: Record<string, string>) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS,
+      payload: { nodeId, parameters }
+    });
+  },
+  [dispatch]
+);
+
+const dispatchUpdateEventPayload = useCallback(
+  (nodeId: string, payload: Record<string, any>) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD,
+      payload: { nodeId, payload }
+    });
+  },
+  [dispatch]
+);
+
+const dispatchUpdateViewSources = useCallback(
+  (nodeId: string, sourceEvents: string[]) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES,
+      payload: { nodeId, sourceEvents }
+    });
+  },
+  [dispatch]
+);
+// --- End memoized dispatchUpdate* functions ---
   
   // Time travel functionality
   const onTimeTravel = useCallback(
@@ -1135,35 +1080,37 @@ const App = () => {
     input.click();
   }, [dispatch]);
 
-  const customNodeTypes = useMemo(() => ({
+  // --- Memoize customNodeTypes with stable dispatchUpdate* dependencies ---
+const customNodeTypes = useMemo(
+  () => ({
     swimlane: (nodeProps: any) => (
-      <SwimlaneNode 
-        {...nodeProps} 
+      <SwimlaneNode
+        {...nodeProps}
         dispatchAddBlock={(blockData) => {
           // Based on block type, dispatch the appropriate action
-          switch(blockData.type) {
+          switch (blockData.type) {
             case 'trigger':
               dispatch({
                 type: EventTypes.ModelingEditor.ADD_TRIGGER,
-                payload: blockData
+                payload: blockData,
               });
               break;
             case 'command':
               dispatch({
                 type: EventTypes.ModelingEditor.ADD_COMMAND,
-                payload: blockData
+                payload: blockData,
               });
               break;
             case 'event':
               dispatch({
                 type: EventTypes.ModelingEditor.ADD_EVENT,
-                payload: blockData
+                payload: blockData,
               });
               break;
             case 'view':
               dispatch({
                 type: EventTypes.ModelingEditor.ADD_VIEW,
-                payload: blockData
+                payload: blockData,
               });
               break;
             default:
@@ -1173,43 +1120,43 @@ const App = () => {
         dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
       />
     ),
-    block: (nodeProps: any) => (
-      <BlockNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} />
-    ),
-    // Add new node types
-    trigger: (nodeProps: any) => (
-      <TriggerNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} />
-    ),
-    command: (nodeProps: any) => (
-      <CommandNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onParametersChange={dispatchUpdateCommandParameters} />
-    ),
-    event: (nodeProps: any) => (
-      <EventNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onPayloadChange={dispatchUpdateEventPayload} />
-    ),
-    view: (nodeProps: any) => (
-      <ViewNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onSourcesChange={dispatchUpdateViewSources} />
-    ),
-  }), [dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources]);
+    block: (nodeProps: any) => <BlockNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} />,
+    trigger: (nodeProps: any) => <TriggerNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} />,
+    command: (nodeProps: any) => <CommandNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onParametersChange={dispatchUpdateCommandParameters} />,
+    event: (nodeProps: any) => <EventNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onPayloadChange={dispatchUpdateEventPayload} />,
+    view: (nodeProps: any) => <ViewNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onSourcesChange={dispatchUpdateViewSources} />,
+  }),
+  // Only depend on stable, memoized dispatchUpdate* functions
+  [dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources]
+);
 
-  // Define custom edge types with appropriate styling and enhanced edge data
-  const edgeTypes = useMemo(() => ({
+// Define custom edge types with appropriate styling and enhanced edge data
+// --- Create a stable edgeTypes object that doesn't depend on nodes ---
+const edgeTypes = useMemo(
+  () => ({
     'command-pattern': (props: any) => {
-      const { source, target } = props;
-      const sourceNode = nodes.find(n => n.id === source);
-      const targetNode = nodes.find(n => n.id === target);
-      const edgeStyle = getEdgeStyle(sourceNode || null, targetNode || null);
+      // Get edge style directly from props without depending on nodes array
+      // This avoids re-creating the edgeTypes object when nodes change
+      const edgeStyle = { stroke: '#333', strokeWidth: 2 };
       
-      // Instead of using BaseEdge directly with potentially incompatible types,
-      // pass our custom props through EdgeProps as provided by React Flow
+      // Apply pattern-specific styling if available in props.data
+      if (props.data?.patternType) {
+        if (props.data.patternType === 'command') {
+          Object.assign(edgeStyle, { stroke: '#333', strokeWidth: 2 });
+        } else if (props.data.patternType === 'view') {
+          Object.assign(edgeStyle, { stroke: '#22a355', strokeWidth: 2, strokeDasharray: '5,5' });
+        } else if (props.data.patternType === 'automation') {
+          Object.assign(edgeStyle, { stroke: '#8844cc', strokeWidth: 2, strokeDasharray: '2,2', opacity: 0.8 });
+        }
+      }
+      
       return (
         <g>
-          {/* Custom edge path */}
           <path
             className="react-flow__edge-path"
             d={props.pathPoints || `M${props.sourceX},${props.sourceY} L${props.targetX},${props.targetY}`}
             style={edgeStyle}
           />
-          {/* Edge label if condition exists */}
           {props.data?.condition && (
             <text
               className="react-flow__edge-text"
@@ -1225,7 +1172,8 @@ const App = () => {
         </g>
       );
     },
-  }), [nodes]);
+  }), [] // No dependencies - completely stable reference
+);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
