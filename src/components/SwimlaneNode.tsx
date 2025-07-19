@@ -24,7 +24,9 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   const [showControls, setShowControls] = useState(false);
   const [mouseX, setMouseX] = useState(0);
   const [controlBarX, setControlBarX] = useState(0);
+  const [isMouseOverBar, setIsMouseOverBar] = useState(false);
   const swimlaneRef = useRef<HTMLDivElement>(null);
+  const controlBarRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -132,13 +134,16 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
       const relativeX = e.clientX - rect.left;
       setMouseX(relativeX);
       
-      // Only reposition control bar if mouse is more than 300px away horizontally
-      const distance = Math.abs(relativeX - controlBarX);
-      if (distance > 100) {
-        setControlBarX(relativeX);
+      // Don't reposition if mouse is over the control bar
+      if (!isMouseOverBar) {
+        // Only reposition control bar if mouse is more than 100px away horizontally
+        const distance = Math.abs(relativeX - controlBarX);
+        if (distance > 100) {
+          setControlBarX(relativeX);
+        }
       }
     }
-  }, [controlBarX]);
+  }, [controlBarX, isMouseOverBar]);
   
   // Handle mouse enter/leave for showing/hiding control bar
   const handleMouseEnter = useCallback(() => {
@@ -237,7 +242,10 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
       {/* Floating control bar that follows mouse horizontally but stays fixed at top */}
       {showControls && (
         <div 
+          ref={controlBarRef}
           className="floating-control-bar"
+          onMouseEnter={() => setIsMouseOverBar(true)}
+          onMouseLeave={() => setIsMouseOverBar(false)}
           style={{
             position: 'absolute',
             top: 10, // Fixed at top of swimlane
