@@ -432,12 +432,23 @@ const AppContent = () => {
     dispatchAddProcessor(newProcessor);
   }, [dispatchAddProcessor, selectedSwimlaneId, nodes]);
 
-  // Handle node selection
+  // Helper function to check if a node should have horizontal-only movement
+  const shouldConstrainToHorizontalMovement = useCallback((nodeType?: string): boolean => {
+    return nodeType === 'block' || 
+           nodeType === 'trigger' || 
+           nodeType === 'command' || 
+           nodeType === 'event' || 
+           nodeType === 'view' || 
+           nodeType === 'UI' || 
+           nodeType === 'Processor';
+  }, []);
+
+  // Handle node changes (position, selection, etc)
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      // Process each change based on its type
+      // Filter changes to prevent certain movements
       const processedChanges = changes.filter(change => {
-        // Handle different change types
+        // Only process position changes
         if (change.type === 'position') {
           // Get the node being changed
           const node = nodes.find(n => n.id === change.id);
@@ -450,10 +461,8 @@ const AppContent = () => {
           }
           
           // Constrain block nodes to horizontal movement only
-          if ((node?.type === 'block' || node?.type === 'trigger' || 
-               node?.type === 'command' || node?.type === 'event' || 
-               node?.type === 'view') && 'position' in change && change.position) {
-            console.log(`Constraining ${node.type} to horizontal movement`);
+          if (shouldConstrainToHorizontalMovement(node?.type) && 'position' in change && change.position) {
+            console.log(`Constraining ${node?.type} to horizontal movement`);
             // Modify the change to preserve the original y-position
             change.position.y = node.position.y;
           }
@@ -519,9 +528,7 @@ const AppContent = () => {
         finalPosition = { ...originalNode.position };
       } 
       // Constrain block nodes to horizontal movement only
-      else if (node.type === 'block' || node.type === 'trigger' || 
-          node.type === 'command' || node.type === 'event' || 
-          node.type === 'view') {
+      else if (shouldConstrainToHorizontalMovement(node.type)) {
         console.log(`Constraining ${node.type} to horizontal movement on drag stop`);
         finalPosition.y = originalNode.position.y;
       }

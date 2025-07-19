@@ -5,8 +5,8 @@ export const ConnectionPattern = {
   COMMAND_PATTERN: 'command_pattern', // Trigger -> Command -> Event
   VIEW_PATTERN: 'view_pattern', // Event -> View
   AUTOMATION_PATTERN: 'automation_pattern', // Event -> Command
-  UI_PATTERN: 'ui_pattern', // View -> UI
-  PROCESSOR_PATTERN: 'processor_pattern', // Event/View -> Processor
+  UI_PATTERN: 'ui_pattern', // View -> UI, UI -> Command
+  PROCESSOR_PATTERN: 'processor_pattern', // Event/View -> Processor, Processor -> Command
 } as const;
 
 export type ConnectionPattern = typeof ConnectionPattern[keyof typeof ConnectionPattern];
@@ -41,12 +41,18 @@ export const validConnectionPatterns: ConnectionPatternValidation[] = [
     pattern: ConnectionPattern.VIEW_PATTERN,
     description: 'Event can be displayed in a View'
   },
-  // UI Pattern connection
+  // UI Pattern connections
   {
     sourceNodeTypes: ['view'],
     targetNodeTypes: ['UI'],
     pattern: ConnectionPattern.UI_PATTERN,
     description: 'View can connect to UI block'
+  },
+  {
+    sourceNodeTypes: ['UI'],
+    targetNodeTypes: ['command'],
+    pattern: ConnectionPattern.UI_PATTERN,
+    description: 'UI block can connect to Command'
   },
   // Processor Pattern connections
   {
@@ -60,6 +66,12 @@ export const validConnectionPatterns: ConnectionPatternValidation[] = [
     targetNodeTypes: ['Processor'],
     pattern: ConnectionPattern.PROCESSOR_PATTERN,
     description: 'View can connect to Processor block'
+  },
+  {
+    sourceNodeTypes: ['Processor'],
+    targetNodeTypes: ['command'],
+    pattern: ConnectionPattern.PROCESSOR_PATTERN,
+    description: 'Processor block can connect to Command'
   },
 
   // Automation Pattern connections

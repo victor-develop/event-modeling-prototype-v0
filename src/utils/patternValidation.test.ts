@@ -80,6 +80,56 @@ describe('Pattern Validation', () => {
       expect(result.message).toContain('Invalid connection');
     });
     
+    it('should allow View -> UI connections', () => {
+      const sourceNode = { id: '4', type: 'view' };
+      const targetNode = { id: '5', type: 'UI' };
+      
+      const result = isValidConnection(sourceNode, targetNode);
+      
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe('View can connect to UI block');
+    });
+    
+    it('should allow UI -> Command connections', () => {
+      const sourceNode = { id: '5', type: 'UI' };
+      const targetNode = { id: '2', type: 'command' };
+      
+      const result = isValidConnection(sourceNode, targetNode);
+      
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe('UI block can connect to Command');
+    });
+    
+    it('should allow Event -> Processor connections', () => {
+      const sourceNode = { id: '3', type: 'event' };
+      const targetNode = { id: '6', type: 'Processor' };
+      
+      const result = isValidConnection(sourceNode, targetNode);
+      
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe('Event can connect to Processor block');
+    });
+    
+    it('should allow View -> Processor connections', () => {
+      const sourceNode = { id: '4', type: 'view' };
+      const targetNode = { id: '6', type: 'Processor' };
+      
+      const result = isValidConnection(sourceNode, targetNode);
+      
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe('View can connect to Processor block');
+    });
+    
+    it('should allow Processor -> Command connections', () => {
+      const sourceNode = { id: '6', type: 'Processor' };
+      const targetNode = { id: '2', type: 'command' };
+      
+      const result = isValidConnection(sourceNode, targetNode);
+      
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe('Processor block can connect to Command');
+    });
+    
     it('should handle null nodes', () => {
       expect(isValidConnection(null, { id: '2', type: 'command' }).valid).toBe(false);
       expect(isValidConnection({ id: '1', type: 'trigger' }, null).valid).toBe(false);
@@ -120,6 +170,45 @@ describe('Pattern Validation', () => {
         { id: '2', type: 'command' }
       );
       expect(pattern).toBe(ConnectionPattern.AUTOMATION_PATTERN);
+    });
+    
+    it('should identify UI Pattern connections', () => {
+      // View -> UI
+      const pattern1 = getConnectionPatternType(
+        { id: '4', type: 'view' },
+        { id: '5', type: 'UI' }
+      );
+      expect(pattern1).toBe(ConnectionPattern.UI_PATTERN);
+      
+      // UI -> Command
+      const pattern2 = getConnectionPatternType(
+        { id: '5', type: 'UI' },
+        { id: '2', type: 'command' }
+      );
+      expect(pattern2).toBe(ConnectionPattern.UI_PATTERN);
+    });
+    
+    it('should identify Processor Pattern connections', () => {
+      // Event -> Processor
+      const pattern1 = getConnectionPatternType(
+        { id: '3', type: 'event' },
+        { id: '6', type: 'Processor' }
+      );
+      expect(pattern1).toBe(ConnectionPattern.PROCESSOR_PATTERN);
+      
+      // View -> Processor
+      const pattern2 = getConnectionPatternType(
+        { id: '4', type: 'view' },
+        { id: '6', type: 'Processor' }
+      );
+      expect(pattern2).toBe(ConnectionPattern.PROCESSOR_PATTERN);
+      
+      // Processor -> Command
+      const pattern3 = getConnectionPatternType(
+        { id: '6', type: 'Processor' },
+        { id: '2', type: 'command' }
+      );
+      expect(pattern3).toBe(ConnectionPattern.PROCESSOR_PATTERN);
     });
     
     it('should return null for invalid connections', () => {
