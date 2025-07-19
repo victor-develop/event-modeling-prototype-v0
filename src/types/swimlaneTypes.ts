@@ -53,4 +53,5 @@ export interface SwimlaneNodeProps {
   data: SwimlaneNodeData;
   dispatchAddBlock: (blockData: any) => void;
   dispatchUpdateNodeLabel: (nodeId: string, label: string) => void;
+  selected?: boolean; // Added to support focus styling
 }

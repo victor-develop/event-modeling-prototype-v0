@@ -14,6 +14,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   data,
   dispatchAddBlock,
   dispatchUpdateNodeLabel,
+  selected,
 }) => {
   const { getNodes } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
@@ -148,18 +149,34 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
     }
   }, [id, label, dispatchUpdateNodeLabel]);
 
+  // Focus effect styles - only border and subtle shadow, no overlay
+  const focusStyles = selected ? {
+    border: '2px solid #3182ce',
+    boxShadow: '0 0 0 2px rgba(49, 130, 206, 0.3)',
+    zIndex: 10
+  } : {};
+  
+  // Base styles for the swimlane
+  const baseStyles: React.CSSProperties = {
+    width: '100%',
+    height: '100%',
+    border: selected ? '2px solid #3182ce' : '1px solid #ccc',
+    borderRadius: '5px',
+    backgroundColor: swimlaneKind && SWIMLANE_KIND_COLORS[swimlaneKind] 
+      ? SWIMLANE_KIND_COLORS[swimlaneKind] // Keep original background regardless of selection
+      : 'rgba(200,200,255,0.2)',
+    padding: '10px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    position: 'relative',
+    transition: 'all 0.2s ease',
+  };
+
   return (
     <div
       style={{
-        width: '100%',
-        height: '100%',
-        border: '1px solid #ccc',
-        borderRadius: '5px',
-        backgroundColor: swimlaneKind && SWIMLANE_KIND_COLORS[swimlaneKind] ? SWIMLANE_KIND_COLORS[swimlaneKind] : 'rgba(200,200,255,0.2)',
-        padding: '10px',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
+        ...baseStyles,
+        ...focusStyles
       }}
     >
       {/* Add vertical drag handle for restricted vertical movement */}
@@ -170,19 +187,24 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
         transform: 'translateX(-50%)',
         width: '30px',
         height: '10px',
-        background: '#888',
+        background: selected ? '#3182ce' : '#888',
         borderBottomLeftRadius: '4px',
         borderBottomRightRadius: '4px',
         cursor: 'ns-resize',
         zIndex: 10,
+        transition: 'background-color 0.2s ease',
       }} />
       
       <div style={{ 
         display: 'flex', 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '10px'
+        flexDirection: 'row' as const, 
+        justifyContent: 'space-between' as const, 
+        alignItems: 'center' as const,
+        marginBottom: '10px',
+        padding: '0px',
+        backgroundColor: 'transparent',
+        borderRadius: '4px',
+        transition: 'all 0.2s ease',
       }}>
         {isEditing ? (
           <input
@@ -218,7 +240,9 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
           fontSize: '0.8em', 
           backgroundColor: 'rgba(255,255,255,0.6)', 
           padding: '2px 6px',
-          borderRadius: '10px'
+          borderRadius: '10px',
+          border: 'none',
+          transition: 'all 0.2s ease',
         }}>
           {swimlaneKind && SWIMLANE_KIND_LABELS[swimlaneKind] ? SWIMLANE_KIND_LABELS[swimlaneKind] : 'Generic'}
         </div>
@@ -226,9 +250,13 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
       
       <div className="block-creation-buttons" style={{ 
         display: 'flex', 
-        justifyContent: 'center', 
+        justifyContent: 'center' as const, 
         gap: '10px',
-        marginTop: '10px'
+        marginTop: '10px',
+        padding: '0',
+        backgroundColor: 'transparent',
+        borderRadius: '4px',
+        transition: 'all 0.2s ease',
       }}>
         {allowedBlockTypes.map((blockType) => {
           // Map from block type display name to kind value
@@ -263,23 +291,39 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
       <div style={{ 
         flexGrow: 1, 
         display: 'flex', 
-        flexDirection: 'row', 
-        flexWrap: 'nowrap', 
-        overflowX: 'auto',
-        overflowY: 'hidden',
+        flexDirection: 'row' as const, 
+        flexWrap: 'nowrap' as const, 
+        overflowX: 'auto' as const,
+        overflowY: 'hidden' as const,
         minHeight: '100px',
         backgroundColor: 'rgba(255, 255, 255, 0.3)',
         borderRadius: '3px',
         padding: '5px',
         gap: '10px', // Add spacing between blocks
-        alignItems: 'flex-start' // Align blocks at the top
+        alignItems: 'flex-start' as const, // Align blocks at the top
+        border: 'none',
+        transition: 'all 0.2s ease',
       }}>
         {/* Blocks will render here */}
       </div>
       
       {/* Handles for connections */}
-      <Handle type="target" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        style={{
+          background: selected ? '#3182ce' : '#555',
+          transition: 'background-color 0.2s ease',
+        }}
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        style={{
+          background: selected ? '#3182ce' : '#555',
+          transition: 'background-color 0.2s ease',
+        }}
+      />
     </div>
   );
 };
