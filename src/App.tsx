@@ -178,7 +178,7 @@ const App = () => {
     const id = nanoid();
     // Calculate position within the swimlane
     const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 50; // Offset from the top edge of swimlane
+    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
     
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
@@ -236,7 +236,7 @@ const App = () => {
     const id = nanoid();
     // Calculate position within the swimlane
     const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 50; // Offset from the top edge of swimlane
+    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
     
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
@@ -294,7 +294,7 @@ const App = () => {
     const id = nanoid();
     // Calculate position within the swimlane
     const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 50; // Offset from the top edge of swimlane
+    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
     
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
@@ -353,7 +353,7 @@ const App = () => {
     const id = nanoid();
     // Calculate position within the swimlane
     const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 50; // Offset from the top edge of swimlane
+    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
     
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
@@ -412,7 +412,7 @@ const App = () => {
     const id = nanoid();
     // Calculate position within the swimlane
     const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 50; // Offset from the top edge of swimlane
+    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
     
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
@@ -468,7 +468,7 @@ const App = () => {
     const id = nanoid();
     // Calculate position within the swimlane
     const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 50; // Offset from the top edge of swimlane
+    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
     
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);

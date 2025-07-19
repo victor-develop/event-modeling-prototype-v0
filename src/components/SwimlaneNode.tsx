@@ -53,7 +53,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
     const blockWidth = 140;  // Wider blocks for better content display
     const blockPadding = 20; // Space between blocks
     const leftMargin = 10;   // Left margin inside swimlane
-    const topOffsetForBlocks = 20; // Vertical position within swimlane content area
+    const topOffsetForBlocks = 80; // Vertical position within swimlane content area - increased to avoid overlapping with buttons
     
     // Calculate horizontal position for new block
     let newX = leftMargin; // Default to leftmost position
@@ -160,7 +160,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   const baseStyles: React.CSSProperties = {
     width: '100%',
     height: '100%',
-    border: selected ? '2px solid #3182ce' : '1px solid #ccc',
+    border: '1px solid #ccc', // Default border, focus border is in focusStyles
     borderRadius: '5px',
     backgroundColor: swimlaneKind && SWIMLANE_KIND_COLORS[swimlaneKind] 
       ? SWIMLANE_KIND_COLORS[swimlaneKind] // Keep original background regardless of selection
@@ -172,12 +172,21 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
     transition: 'all 0.2s ease',
   };
 
+  // Handle keyboard focus events
+  const handleFocus = useCallback(() => {
+    // This would be where we'd dispatch an action to select this swimlane
+    // if we weren't already using the selected prop
+  }, []);
+
   return (
     <div
       style={{
         ...baseStyles,
         ...focusStyles
       }}
+      tabIndex={0} // Make the swimlane focusable with keyboard
+      onFocus={handleFocus}
+      aria-label={`${swimlaneKind || 'Unknown'} swimlane: ${label}`} // Accessibility label
     >
       {/* Add vertical drag handle for restricted vertical movement */}
       <div className="vertical-drag-handle" style={{
