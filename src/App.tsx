@@ -856,6 +856,8 @@ const edgeTypes = useMemo(() => createCustomEdgeTypes(), []);
         onImportEvents={onImportEvents}
         onCompressSnapshot={onCompressSnapshot}
         onImportModelState={importModelState}
+        selectedSwimlaneId={selectedSwimlaneId}
+        nodes={nodes}
       />
       
       {/* Welcome Guide for new users */}

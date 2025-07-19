@@ -12,6 +12,8 @@ interface TopbarProps {
   onImportEvents: () => void;
   onCompressSnapshot: () => void;
   onImportModelState?: () => void; // Optional new prop for direct model state import
+  selectedSwimlaneId: string | null;
+  nodes: any[]; // Using any[] for simplicity, could be more specific with Node type
 }
 
 const Topbar: React.FC<TopbarProps> = ({ 
@@ -25,7 +27,9 @@ const Topbar: React.FC<TopbarProps> = ({
   onExportEvents, 
   onImportEvents, 
   onCompressSnapshot,
-  onImportModelState
+  onImportModelState,
+  selectedSwimlaneId,
+  nodes
 }) => {
   // Handle add swimlane button clicks for different types
   const handleAddEventSwimlane = () => {
@@ -77,28 +81,84 @@ const Topbar: React.FC<TopbarProps> = ({
 
         <div style={{ marginBottom: '8px' }}>
           <span style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Building Blocks</span>
-          <button onClick={onAddTrigger} style={{ marginRight: '5px', backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
-            Trigger
-          </button>
-          <button onClick={onAddCommand} style={{ marginRight: '5px', backgroundColor: '#3498db', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
-            Command
-          </button>
-          <button onClick={onAddEvent} style={{ marginRight: '5px', backgroundColor: '#f1c40f', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
-            Event
-          </button>
-          <button onClick={onAddView} style={{ marginRight: '5px', backgroundColor: '#95a5a6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
-            View
-          </button>
-          {onAddUI && (
-            <button onClick={onAddUI} style={{ marginRight: '5px', backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
-              UI
-            </button>
+          {/* Show all building blocks if no swimlane is selected */}
+          {!selectedSwimlaneId && (
+            <>
+              <button onClick={onAddTrigger} style={{ marginRight: '5px', backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                Trigger
+              </button>
+              <button onClick={onAddCommand} style={{ marginRight: '5px', backgroundColor: '#3498db', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                Command
+              </button>
+              <button onClick={onAddEvent} style={{ marginRight: '5px', backgroundColor: '#f1c40f', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                Event
+              </button>
+              <button onClick={onAddView} style={{ marginRight: '5px', backgroundColor: '#95a5a6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                View
+              </button>
+              {onAddUI && (
+                <button onClick={onAddUI} style={{ marginRight: '5px', backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                  UI
+                </button>
+              )}
+              {onAddProcessor && (
+                <button onClick={onAddProcessor} style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                  Processor
+                </button>
+              )}
+            </>
           )}
-          {onAddProcessor && (
-            <button onClick={onAddProcessor} style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
-              Processor
-            </button>
-          )}
+          
+          {/* Show context-aware building blocks based on selected swimlane type */}
+          {selectedSwimlaneId && (() => {
+            const selectedSwimlane = nodes.find(node => node.id === selectedSwimlaneId);
+            if (!selectedSwimlane || !selectedSwimlane.data) return null;
+            
+            const swimlaneKind = selectedSwimlane.data.kind;
+            
+            switch(swimlaneKind) {
+              case 'event':
+                return (
+                  <>
+                    <button onClick={onAddEvent} style={{ marginRight: '5px', backgroundColor: '#f1c40f', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                      Event
+                    </button>
+                  </>
+                );
+              case 'command_view':
+                return (
+                  <>
+                    <button onClick={onAddCommand} style={{ marginRight: '5px', backgroundColor: '#3498db', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                      Command
+                    </button>
+                    <button onClick={onAddView} style={{ marginRight: '5px', backgroundColor: '#95a5a6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                      View
+                    </button>
+                  </>
+                );
+              case 'trigger':
+                return (
+                  <>
+                    <button onClick={onAddTrigger} style={{ marginRight: '5px', backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                      Trigger
+                    </button>
+                    {onAddUI && (
+                      <button onClick={onAddUI} style={{ marginRight: '5px', backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                        UI
+                      </button>
+                    )}
+                    {onAddProcessor && (
+                      <button onClick={onAddProcessor} style={{ backgroundColor: '#9b59b6', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}>
+                        Processor
+                      </button>
+                    )}
+                  </>
+                );
+              default:
+                return null;
+            }
+          })()}
+        
         </div>
 
         <div>
