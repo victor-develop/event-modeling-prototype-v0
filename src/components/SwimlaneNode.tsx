@@ -134,7 +134,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
       
       // Only reposition control bar if mouse is more than 300px away horizontally
       const distance = Math.abs(relativeX - controlBarX);
-      if (distance > 300) {
+      if (distance > 100) {
         setControlBarX(relativeX);
       }
     }
