@@ -21,6 +21,9 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
+  const [showControls, setShowControls] = useState(false);
+  const [mouseY, setMouseY] = useState(0);
+  const swimlaneRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -120,15 +123,37 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
     // This would be where we'd dispatch an action to select this swimlane
     // if we weren't already using the selected prop
   }, []);
+  
+  // Handle mouse movement for floating control bar
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (swimlaneRef.current) {
+      const rect = swimlaneRef.current.getBoundingClientRect();
+      const relativeY = e.clientY - rect.top;
+      setMouseY(relativeY);
+    }
+  }, []);
+  
+  // Handle mouse enter/leave for showing/hiding control bar
+  const handleMouseEnter = useCallback(() => {
+    setShowControls(true);
+  }, []);
+  
+  const handleMouseLeave = useCallback(() => {
+    setShowControls(false);
+  }, []);
 
   return (
     <div
+      ref={swimlaneRef}
       style={{
         ...baseStyles,
         ...focusStyles
       }}
       tabIndex={0} // Make the swimlane focusable with keyboard
       onFocus={handleFocus}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       aria-label={`${swimlaneKind || 'Unknown'} swimlane: ${label}`} // Accessibility label
     >
       {/* Add vertical drag handle for restricted vertical movement */}
@@ -200,45 +225,57 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
         </div>
       </div>
       
-      <div className="block-creation-buttons" style={{ 
-        display: 'flex', 
-        justifyContent: 'center' as const, 
-        gap: '10px',
-        marginTop: '10px',
-        padding: '0',
-        backgroundColor: 'transparent',
-        borderRadius: '4px',
-        transition: 'all 0.2s ease',
-      }}>
-        {allowedBlockTypes.map((blockType) => {
-          // Map from block type display name to kind value
-          const blockKindValue = blockType.toLowerCase();
-          // Get color for this block kind
-          const buttonBorderColor = BLOCK_KIND_BORDERS[blockKindValue] || '#ddd';
-          
-          return (
-            <button 
-              key={blockType}
-              onClick={() => createBlockInSwimlane(blockKindValue)}
-              className="create-block-button"
-              style={{ 
-                padding: '5px 10px',
-                background: '#f0f0f0',
-                border: `1px solid ${buttonBorderColor}`,
-                borderRadius: '3px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-              title={`Create ${blockType}`}
-            >
-              <span>+</span> {blockType}
-            </button>
-          );
-        })}
-      </div>
+      {/* Floating control bar that follows mouse vertically */}
+      {showControls && (
+        <div 
+          className="floating-control-bar"
+          style={{
+            position: 'absolute',
+            top: Math.max(40, Math.min(mouseY, swimlaneRef.current?.clientHeight || 200 - 60)),
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '10px',
+            padding: '8px 12px',
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
+            zIndex: 1000,
+            transition: 'top 0.1s ease-out',
+            border: '1px solid #ddd',
+          }}
+        >
+          {allowedBlockTypes.map((blockType) => {
+            // Map from block type display name to kind value
+            const blockKindValue = blockType.toLowerCase();
+            // Get color for this block kind
+            const buttonBorderColor = BLOCK_KIND_BORDERS[blockKindValue] || '#ddd';
+            
+            return (
+              <button 
+                key={blockType}
+                onClick={() => createBlockInSwimlane(blockKindValue)}
+                className="create-block-button"
+                style={{ 
+                  padding: '5px 10px',
+                  background: '#f0f0f0',
+                  border: `1px solid ${buttonBorderColor}`,
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+                title={`Create ${blockType}`}
+              >
+                <span>+</span> {blockType}
+              </button>
+            );
+          })}
+        </div>
+      )}
       
       <div style={{ 
         flexGrow: 1, 
