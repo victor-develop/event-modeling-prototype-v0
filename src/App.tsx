@@ -707,7 +707,11 @@ const dispatchUpdateViewSources = useCallback(
   // Create a snapshot to compress history
   const onCompressSnapshot = useCallback(() => {
     if (currentEventIndex < 0) {
-      alert('No events to compress.');
+      showToast({
+        message: 'No events to compress.',
+        type: 'warning',
+        duration: 5000
+      });
       return;
     }
     
@@ -720,7 +724,11 @@ const dispatchUpdateViewSources = useCallback(
       }
     });
     
-    alert('History compressed successfully! Previous events have been consolidated into a snapshot.');
+    showToast({
+      message: 'History compressed successfully! Previous events have been consolidated into a snapshot.',
+      type: 'success',
+      duration: 5000
+    });
   }, [dispatch, nodes, edges, currentEventIndex]);
   
   // Import direct model state (advanced feature)
@@ -800,9 +808,17 @@ const dispatchUpdateViewSources = useCallback(
               payload: syntheticEvents
             });
             
-            alert('Model state imported successfully!');
+            showToast({
+              message: 'Model state imported successfully!',
+              type: 'success',
+              duration: 5000
+            });
           } else {
-            alert('Invalid model state format. Please use a valid JSON export.');
+            showToast({
+              message: 'Invalid model state format. Please use a valid JSON export.',
+              type: 'error',
+              duration: 5000
+            });
           }
         } catch (err) {
           console.error('Error parsing JSON:', err);

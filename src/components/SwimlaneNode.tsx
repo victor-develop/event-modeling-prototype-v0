@@ -8,6 +8,7 @@ import {
 } from '../types/swimlaneTypes';
 import { BLOCK_KIND_BORDERS } from '../types/blockTypes';
 import { createBlock, validateBlockInSwimlane } from '../utils/blockCreation';
+import { useToast } from '../context/ToastContext';
 
 const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   id,
@@ -17,6 +18,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   selected,
 }) => {
   const { getNodes } = useReactFlow();
+  const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -51,7 +53,11 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
     const validationError = validateBlockInSwimlane(blockType.toLowerCase(), swimlaneKind);
     if (validationError) {
       console.warn(validationError);
-      alert(validationError);
+      showToast({
+        message: validationError,
+        type: 'error',
+        duration: 5000
+      });
       return;
     }
 
@@ -102,7 +108,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
     backgroundColor: swimlaneKind && SWIMLANE_KIND_COLORS[swimlaneKind] 
       ? SWIMLANE_KIND_COLORS[swimlaneKind] // Keep original background regardless of selection
       : 'rgba(200,200,255,0.2)',
-    padding: '10px',
+    padding: '5px 5px 5px 0px', // Reduced left padding to minimize gap
     display: 'flex',
     flexDirection: 'column' as const,
     position: 'relative',
@@ -245,7 +251,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
         minWidth: '800px', // Added minimum width to prevent collapse
         backgroundColor: 'rgba(255, 255, 255, 0.3)',
         borderRadius: '3px',
-        padding: '5px',
+        padding: '5px 5px 5px 0px', // Reduced left padding to minimize gap
         gap: '10px', // Add spacing between blocks
         alignItems: 'flex-start' as const, // Align blocks at the top
         border: 'none',
