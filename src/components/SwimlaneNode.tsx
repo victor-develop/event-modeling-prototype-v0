@@ -22,7 +22,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const [showControls, setShowControls] = useState(false);
-  const [mouseY, setMouseY] = useState(0);
+  const [mouseX, setMouseX] = useState(0);
   const swimlaneRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -128,8 +128,8 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (swimlaneRef.current) {
       const rect = swimlaneRef.current.getBoundingClientRect();
-      const relativeY = e.clientY - rect.top;
-      setMouseY(relativeY);
+      const relativeX = e.clientX - rect.left;
+      setMouseX(relativeX);
     }
   }, []);
   
@@ -225,14 +225,14 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
         </div>
       </div>
       
-      {/* Floating control bar that follows mouse vertically */}
+      {/* Floating control bar that follows mouse horizontally but stays fixed at top */}
       {showControls && (
         <div 
           className="floating-control-bar"
           style={{
             position: 'absolute',
-            top: Math.max(40, Math.min(mouseY, swimlaneRef.current?.clientHeight || 200 - 60)),
-            left: '50%',
+            top: 10, // Fixed at top of swimlane
+            left: Math.max(50, Math.min(mouseX, (swimlaneRef.current?.clientWidth || 500) - 100)),
             transform: 'translateX(-50%)',
             display: 'flex',
             justifyContent: 'center',
@@ -242,7 +242,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
             borderRadius: '20px',
             boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
             zIndex: 1000,
-            transition: 'top 0.1s ease-out',
+            transition: 'left 0.1s ease-out', // Changed from top to left for horizontal movement
             border: '1px solid #ddd',
           }}
         >
