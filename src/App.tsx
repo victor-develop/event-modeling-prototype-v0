@@ -1,4 +1,5 @@
 import React, { useCallback, useReducer, useState, useMemo } from 'react';
+import { ToastProvider, useToast } from './context/ToastContext';
 import {
   ReactFlow,
   MiniMap,
@@ -56,7 +57,9 @@ import {
 
 const nodeClassName = (node: any): string => node.type;
 
-const App = () => {
+// AppContent component contains the main application logic
+const AppContent = () => {
+  const { showToast } = useToast();
   const [state, dispatch] = useReducer(appReducer, initialState);
   const [selectedSwimlaneId, setSelectedSwimlaneId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -158,7 +161,11 @@ const App = () => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding a Trigger block.');
+      showToast({
+        message: 'Please select a swimlane first before adding a Trigger block.',
+        type: 'warning',
+        duration: 5000
+      });
       return;
     }
     
@@ -173,7 +180,11 @@ const App = () => {
     const validationError = validateBlockInSwimlane('trigger', swimlane.data?.kind);
     if (validationError) {
       console.warn(validationError);
-      alert(validationError);
+      showToast({
+        message: validationError,
+        type: 'error',
+        duration: 5000
+      });
       return;
     }
     
@@ -196,7 +207,11 @@ const App = () => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding a Command block.');
+      showToast({
+        message: 'Please select a swimlane first before adding a Command block.',
+        type: 'warning',
+        duration: 5000
+      });
       return;
     }
     
@@ -211,7 +226,11 @@ const App = () => {
     const validationError = validateBlockInSwimlane('command', swimlane.data?.kind);
     if (validationError) {
       console.warn(validationError);
-      alert(validationError);
+      showToast({
+        message: validationError,
+        type: 'error',
+        duration: 5000
+      });
       return;
     }
     
@@ -234,7 +253,11 @@ const App = () => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding an Event block.');
+      showToast({
+        message: 'Please select a swimlane first before adding an Event block.',
+        type: 'warning',
+        duration: 5000
+      });
       return;
     }
     
@@ -249,7 +272,11 @@ const App = () => {
     const validationError = validateBlockInSwimlane('event', swimlane.data?.kind);
     if (validationError) {
       console.warn(validationError);
-      alert(validationError);
+      showToast({
+        message: validationError,
+        type: 'error',
+        duration: 5000
+      });
       return;
     }
     
@@ -272,7 +299,11 @@ const App = () => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding a View.');
+      showToast({
+        message: 'Please select a swimlane first before adding a View.',
+        type: 'warning',
+        duration: 5000
+      });
       return;
     }
     
@@ -287,7 +318,11 @@ const App = () => {
     const validationError = validateBlockInSwimlane('view', swimlane.data?.kind);
     if (validationError) {
       console.warn(validationError);
-      alert(validationError);
+      showToast({
+        message: validationError,
+        type: 'error',
+        duration: 5000
+      });
       return;
     }
     
@@ -310,7 +345,11 @@ const App = () => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding a UI block.');
+      showToast({
+        message: 'Please select a swimlane first before adding a UI block.',
+        type: 'warning',
+        duration: 5000
+      });
       return;
     }
     
@@ -325,7 +364,11 @@ const App = () => {
     const validationError = validateBlockInSwimlane('ui', swimlane.data?.kind);
     if (validationError) {
       console.warn(validationError);
-      alert(validationError);
+      showToast({
+        message: validationError,
+        type: 'error',
+        duration: 5000
+      });
       return;
     }
     
@@ -348,7 +391,11 @@ const App = () => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding a Processor block.');
+      showToast({
+        message: 'Please select a swimlane first before adding a Processor block.',
+        type: 'warning',
+        duration: 5000
+      });
       return;
     }
     
@@ -363,7 +410,11 @@ const App = () => {
     const validationError = validateBlockInSwimlane('processor', swimlane.data?.kind);
     if (validationError) {
       console.warn(validationError);
-      alert(validationError);
+      showToast({
+        message: validationError,
+        type: 'error',
+        duration: 5000
+      });
       return;
     }
     
@@ -513,9 +564,13 @@ const App = () => {
           payload: enhancedConnection
         });
       } else {
-        console.warn('Invalid connection attempted', connection);
-        alert('This connection is not allowed based on event modeling patterns.');
-      }
+        console.warn('This connection is not allowed based on event modeling patterns.');  
+        showToast({
+          message: 'This connection is not allowed based on event modeling patterns.',
+          type: 'error',
+          duration: 5000
+        });
+        return;}
     },
     [dispatch, nodes]
   );
@@ -615,7 +670,11 @@ const dispatchUpdateViewSources = useCallback(
               type: EventTypes.EventSourcing.LOAD_EVENTS,
               payload: parsedContent
             });
-            alert('Legacy event format imported successfully!');
+            showToast({
+              message: 'Legacy event format imported successfully!',
+              type: 'success',
+              duration: 5000
+            });
           } 
           // Check if this is our enhanced format with nodes, edges, events
           else if (parsedContent.nodes && parsedContent.edges && parsedContent.events) {
@@ -623,9 +682,17 @@ const dispatchUpdateViewSources = useCallback(
               type: EventTypes.EventSourcing.LOAD_EVENTS,
               payload: parsedContent.events
             });
-            alert('Model imported successfully!');
+            showToast({
+              message: 'Model imported successfully!',
+              type: 'success',
+              duration: 5000
+            });
           } else {
-            alert('Unknown file format. Please use a valid event model file.');
+            showToast({
+              message: 'Unknown file format. Please use a valid event model file.',
+              type: 'error',
+              duration: 5000
+            });
           }
         } catch (err) {
           console.error('Error parsing JSON:', err);
@@ -856,6 +923,15 @@ const edgeTypes = useMemo(() => createCustomEdgeTypes(), []);
         />
       </div>
     </div>
+  );
+};
+
+// Replace alert() calls with showToast() for better UX in React
+const App = () => {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 };
 

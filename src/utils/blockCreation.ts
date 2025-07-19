@@ -7,7 +7,6 @@ export interface CreateBlockParams {
   parentId: string;
   parentPosition?: { x: number; y: number };
   existingBlocks?: any[];
-  count?: number;
 }
 
 // Interface for the created block
@@ -37,14 +36,13 @@ export function createBlock({
   blockType,
   parentId,
   parentPosition = { x: 0, y: 0 },
-  existingBlocks = [],
-  count = 0
+  existingBlocks = []
 }: CreateBlockParams): BlockData {
   // Block dimensions - consistent across all creation methods
   const blockHeight = 100; // Taller blocks for better visibility
   const blockWidth = 140;  // Wider blocks for better content display
   const blockGap = 160;    // Horizontal gap between blocks
-  const xOffset = 50;      // Offset from the left edge of swimlane
+  const xOffset = 5;      // Offset from the left edge of swimlane - reduced to minimize left gap
   const yOffset = 100;     // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
 
   // Map blockType to correct BlockKind
