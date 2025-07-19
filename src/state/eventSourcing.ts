@@ -138,6 +138,8 @@ export function reduceCanvas(command: IntentionEventType, nodes: any[], edges: a
       }
       break;
     case EventTypes.ModelingEditor.ADD_SWIMLANE:
+      newNodes = [...newNodes, command.payload];
+      break;
     case EventTypes.ModelingEditor.ADD_BLOCK:
     case EventTypes.ModelingEditor.ADD_TRIGGER:
     case EventTypes.ModelingEditor.ADD_COMMAND:
@@ -145,7 +147,27 @@ export function reduceCanvas(command: IntentionEventType, nodes: any[], edges: a
     case EventTypes.ModelingEditor.ADD_VIEW:
     case EventTypes.ModelingEditor.ADD_UI:
     case EventTypes.ModelingEditor.ADD_PROCESSOR:
+      // Add the new block
       newNodes = [...newNodes, command.payload];
+      
+      // Update the parent swimlane width if needed
+      newNodes = newNodes.map((node) => {
+        if (node.id === command.payload.parentId) {
+          const currentSwimlaneWidth = node.style?.width || 800;
+          const potentialRightEdge = command.payload.position.x + (command.payload.style?.width || 100) + 20;
+          
+          if (potentialRightEdge > currentSwimlaneWidth) {
+            return {
+              ...node,
+              style: {
+                ...node.style,
+                width: potentialRightEdge,
+              },
+            };
+          }
+        }
+        return node;
+      });
       break;
     case EventTypes.ModelingEditor.UPDATE_NODE_LABEL:
       newNodes = newNodes.map(node =>

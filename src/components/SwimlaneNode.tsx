@@ -239,9 +239,10 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
         display: 'flex', 
         flexDirection: 'row' as const, 
         flexWrap: 'nowrap' as const, 
-        overflowX: 'auto' as const,
+        overflowX: 'visible' as const, // Changed from 'auto' to 'visible' to allow infinite growth
         overflowY: 'hidden' as const,
         minHeight: '100px',
+        minWidth: '800px', // Added minimum width to prevent collapse
         backgroundColor: 'rgba(255, 255, 255, 0.3)',
         borderRadius: '3px',
         padding: '5px',
