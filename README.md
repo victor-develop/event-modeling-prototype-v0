@@ -284,7 +284,7 @@ To get this project up and running on your local machine, follow these steps:
 
 ### How to Add a New Building Block Type
 
-The application supports adding new building block types beyond the core four (Trigger, Command, Event, View). Here's how to add a new building block type:
+The application supports adding new building block types beyond the core six (Trigger, Command, Event, View, UI, Processor). Here's how to add a new building block type:
 
 1. **Create the Node Component:**
    - Create a new file in `src/components/nodes/` (e.g., `NewBlockNode.tsx`)
@@ -352,6 +352,8 @@ The application supports adding new building block types beyond the core four (T
      'NewBlock': NewBlockNode,  // Use PascalCase for the key
    };
    ```
+   
+   - Ensure the case of the node type matches exactly between the registration and usage
 
 3. **Update Block Type Mapping:**
    - In `src/components/SwimlaneNode.tsx`, add a mapping for the new block type:
@@ -365,27 +367,41 @@ The application supports adding new building block types beyond the core four (T
      }
    };
    ```
+   
+   - Important: Make sure to handle case conversion consistently. For example:
+   ```typescript
+   if (nodeType === 'newblock') nodeType = 'NewBlock';
+   ```
 
 4. **Add Event Handling:**
-   - In `src/state/eventSourcing.ts`, add a new action type and reducer case:
+   - In `src/state/eventSourcing.ts`, add a new action type:
    ```typescript
-   // Add action type
-   export type EventType = 
+   export const EventTypes = {
      // Existing types
-     | 'ADD_NEWBLOCK'
-     // Other types
+     ModelingEditor: {
+       // Existing types
+       ADD_NEWBLOCK: 'ADD_NEWBLOCK',
+     }
+   }
    
-   // Add reducer case
-   case 'ADD_NEWBLOCK':
-     return {
-       ...state,
-       nodes: [...state.nodes, {
-         id: action.payload.id,
-         type: getNodeType('newblock'),  // Use the same function as in SwimlaneNode
-         position: action.payload.position,
-         data: { label: action.payload.label || 'New Block' },
-       }],
-     };
+   export type ModelingEditorEventType =
+     // Existing types
+     | { type: typeof EventTypes.ModelingEditor.ADD_NEWBLOCK; payload: any }
+   ```
+   
+   - In `App.tsx`, add dispatch and handler functions:
+   ```typescript
+   const dispatchAddNewBlock = useCallback((node: any) => {
+     dispatch({
+       type: EventTypes.ModelingEditor.ADD_NEWBLOCK,
+       payload: node
+     });
+   }, [dispatch]);
+   
+   const addNewBlock = useCallback(() => {
+     // Implementation similar to other block creation functions
+     // with appropriate swimlane validation
+   }, [dispatchAddNewBlock, selectedSwimlaneId, nodes]);
    ```
 
 5. **Define Connection Rules:**
@@ -393,12 +409,53 @@ The application supports adding new building block types beyond the core four (T
      - Which block types can connect to your new block
      - Which block types your new block can connect to
    - Example rule: "NewBlock can only accept connections from Event blocks and can only connect to View blocks"
+   - Add appropriate handles to your node component based on these rules
 
 6. **Swimlane Restrictions:**
    - Define which swimlane(s) can contain your new block type
    - Update swimlane logic to enforce these restrictions
+   - Example: UI and Processor blocks are restricted to trigger swimlanes only
 
-7. **Styling Consistency Guidelines:**
+7. **Add to UI:**
+   - Update the Topbar component to include a button for your new block type:
+   ```typescript
+   // In Topbar.tsx
+   interface TopbarProps {
+     // Existing props
+     onAddNewBlock?: () => void;
+   }
+   
+   // In the render function
+   {onAddNewBlock && (
+     <button onClick={onAddNewBlock} style={{ /* styling */ }}>
+       NewBlock
+     </button>
+   )}
+   ```
+   
+   - Pass the handler from App.tsx:
+   ```typescript
+   <Topbar
+     // Existing props
+     onAddNewBlock={addNewBlock}
+   />
+   ```
+
+8. **Add Styling:**
+   - Define colors for your new block type in `src/types/blockTypes.ts`:
+   ```typescript
+   export const BLOCK_KIND_COLORS: Record<string, string> = {
+     // Existing colors
+     'NewBlock': 'rgba(your-color-here)',
+   };
+   
+   export const BLOCK_KIND_BORDERS: Record<string, string> = {
+     // Existing borders
+     'NewBlock': '#your-border-color',
+   };
+   ```
+
+9. **Styling Consistency Guidelines:**
    - **Text Size:** Use 0.9em for labels, 0.8em for descriptions
    - **Icon Size:** 16px for block icons
    - **Colors:** Choose a distinct color that doesn't clash with existing blocks
