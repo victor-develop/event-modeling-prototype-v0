@@ -1,41 +1,50 @@
-import React, { useState, useRef } from 'react';
+import React, { memo } from 'react';
+import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
 
-export interface UINodeProps {
+interface UINodeProps {
   id: string;
-  data: {
+  data: { 
     label: string;
   };
+  selected: boolean;
+  onLabelChange?: (nodeId: string, label: string) => void;
 }
 
-const UINode: React.FC<UINodeProps> = ({ id, data }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [label, setLabel] = useState(data.label || 'UI');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleDoubleClick = () => {
-    setIsEditing(true);
-    setTimeout(() => inputRef.current?.focus(), 0);
-  };
-  const handleBlur = () => setIsEditing(false);
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setLabel(e.target.value);
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') setIsEditing(false);
-  };
+const UINode: React.FC<UINodeProps> = ({
+  id,
+  data,
+  selected,
+  onLabelChange = () => {}
+}) => {
+  const {
+    label,
+    isEditing,
+    inputRef,
+    handleLabelChange,
+    handleDoubleClick,
+    handleBlur,
+    handleKeyDown
+  } = useNodeLabelEdit({
+    id,
+    initialLabel: data.label,
+    onLabelChange,
+    nodeType: 'UINode'
+  });
 
   return (
     <div
       style={{
         width: '100%',
         height: '100%',
-        border: '1px solid #7c3aed',
+        border: `1px solid ${selected ? '#1a192b' : '#7c3aed'}`,
         borderRadius: '5px',
         backgroundColor: '#a78bfa', // Purple
         color: 'white',
         padding: '10px',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 0 4px rgba(124,58,237,0.15)',
+        boxShadow: selected ? '0 0 0 2px #1a192b' : '0 0 4px rgba(124,58,237,0.15)',
       }}
     >
       <div 
@@ -47,7 +56,7 @@ const UINode: React.FC<UINodeProps> = ({ id, data }) => {
           paddingBottom: '5px'
         }}
       >
-        <div style={{ marginRight: '10px', fontSize: '16px' }}>
+        <div style={{ marginRight: '10px', fontSize: '20px' }}>
           🖥️
         </div>
         {isEditing ? (
@@ -55,7 +64,7 @@ const UINode: React.FC<UINodeProps> = ({ id, data }) => {
             ref={inputRef}
             type="text"
             value={label}
-            onChange={handleChange}
+            onChange={handleLabelChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             style={{ 
@@ -64,7 +73,7 @@ const UINode: React.FC<UINodeProps> = ({ id, data }) => {
               border: 'none', 
               background: 'rgba(255,255,255,0.1)', 
               color: 'white',
-              fontSize: '0.9em', 
+              fontSize: '1em', 
               outline: 'none',
               borderRadius: '3px',
               padding: '2px 5px'
@@ -77,7 +86,7 @@ const UINode: React.FC<UINodeProps> = ({ id, data }) => {
               flex: 1,
               fontWeight: 'bold', 
               cursor: 'text', 
-              fontSize: '0.9em' 
+              fontSize: '1em' 
             }}
           >
             {label}
@@ -89,7 +98,7 @@ const UINode: React.FC<UINodeProps> = ({ id, data }) => {
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        color: 'rgba(255,255,255,0.7)',
+        color: 'rgba(255,255,255,0.8)',
         fontSize: '0.8em',
         textAlign: 'center',
         fontStyle: 'italic'
@@ -98,10 +107,30 @@ const UINode: React.FC<UINodeProps> = ({ id, data }) => {
       </div>
       
       {/* Handle placement matching Trigger node */}
-      <Handle type="target" position={Position.Left} id="in" style={{ background: 'white' }} />
-      <Handle type="source" position={Position.Right} id="out" style={{ background: 'white' }} />
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        id="in" 
+        style={{ 
+          background: 'white',
+          width: '10px',
+          height: '10px',
+          border: '1px solid #7c3aed'
+        }} 
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        id="out" 
+        style={{ 
+          background: 'white',
+          width: '10px',
+          height: '10px',
+          border: '1px solid #7c3aed'
+        }} 
+      />
     </div>
   );
 };
 
-export default UINode;
+export default memo(UINode);

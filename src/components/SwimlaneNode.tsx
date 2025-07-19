@@ -1,13 +1,13 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
-import { nanoid } from 'nanoid';
 import type { SwimlaneNodeProps } from '../types/swimlaneTypes';
 import { 
   ALLOWED_BLOCK_TYPES, 
   SWIMLANE_KIND_COLORS,
   SWIMLANE_KIND_LABELS 
 } from '../types/swimlaneTypes';
-import { BlockKind, BLOCK_KIND_BORDERS } from '../types/blockTypes';
+import { BLOCK_KIND_BORDERS } from '../types/blockTypes';
+import { createBlock, validateBlockInSwimlane } from '../utils/blockCreation';
 
 const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   id,
@@ -42,92 +42,29 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   const allowedBlockTypes = swimlaneKind && ALLOWED_BLOCK_TYPES[swimlaneKind] ? ALLOWED_BLOCK_TYPES[swimlaneKind] : [];
 
   // Create a block of the specific type
-  const createBlock = useCallback((blockType: string): void => {
+  const createBlockInSwimlane = useCallback((blockType: string): void => {
     const parentNode = getNodes().find((node) => node.id === id);
     if (!parentNode) return;
 
-    const childNodes = getNodes().filter((node) => node.parentId === id);
-
-    // Block dimensions
-    const blockHeight = 100; // Taller blocks for better visibility
-    const blockWidth = 140;  // Wider blocks for better content display
-    const blockPadding = 20; // Space between blocks
-    const leftMargin = 10;   // Left margin inside swimlane
-    const topOffsetForBlocks = 80; // Vertical position within swimlane content area - increased to avoid overlapping with buttons
-    
-    // Calculate horizontal position for new block
-    let newX = leftMargin; // Default to leftmost position
-    
-    if (childNodes.length > 0) {
-      // Find the rightmost block to position the new block after it
-      const rightmostChild = childNodes.reduce((prev, current) => {
-        const prevRight = prev.position.x + (parseFloat(prev.style?.width as string || '0') || blockWidth);
-        const currentRight = current.position.x + (parseFloat(current.style?.width as string || '0') || blockWidth);
-        return prevRight > currentRight ? prev : current;
-      });
-      
-      // Position new block to the right of the rightmost block
-      newX = rightmostChild.position.x + 
-             (parseFloat(rightmostChild.style?.width as string || '0') || blockWidth) + 
-             blockPadding;
-      
-      // Calculate total width needed for all blocks including the new one
-      const totalWidth = newX + blockWidth + leftMargin;
-      
-      // If parent swimlane needs to grow, dispatch an event to update it
-      if (totalWidth > parseFloat(parentNode.style?.width as string || '0')) {
-        // We'll let the reducer handle the width update
-        // Just make sure we pass enough info in the block payload
-      }
+    // Validate if this block type can be added to this swimlane kind
+    const swimlaneKind = parentNode.data?.kind as string;
+    const validationError = validateBlockInSwimlane(blockType.toLowerCase(), swimlaneKind);
+    if (validationError) {
+      console.warn(validationError);
+      alert(validationError);
+      return;
     }
 
-    // Map the block type to the appropriate BlockKind
-    let blockKind: BlockKind;
-    switch (blockType.toLowerCase()) {
-      case 'trigger':
-        blockKind = BlockKind.TRIGGER;
-        break;
-      case 'command':
-        blockKind = BlockKind.COMMAND;
-        break;
-      case 'event':
-        blockKind = BlockKind.EVENT;
-        break;
-      case 'view':
-        blockKind = BlockKind.VIEW;
-        break;
-      case 'ui':
-        blockKind = BlockKind.UI;
-        break;
-      case 'processor':
-        blockKind = BlockKind.PROCESSOR;
-        break;
-      default:
-        console.error(`Unknown block type: ${blockType}`);
-        return;
-    }
-
-    // Map blockType to correct node type string for React Flow
-    let nodeType = blockType.toLowerCase();
-    if (nodeType === 'ui') nodeType = 'UI';
-    if (nodeType === 'processor') nodeType = 'Processor';
-    const newBlock = {
-      id: nanoid(),
-      type: nodeType,
-      position: { x: newX, y: topOffsetForBlocks },
-      data: { 
-        label: `${blockType} ${childNodes.length + 1}`,
-        kind: blockKind
-      },
+    // Get existing blocks in this swimlane
+    const existingBlocks = getNodes().filter((node) => node.parentId === id);
+    
+    // Use the shared block creation utility
+    const newBlock = createBlock({
+      blockType: blockType.toLowerCase(),
       parentId: id,
-      extent: 'parent',
-      style: { 
-        width: blockWidth, 
-        height: blockHeight, 
-        border: '1px solid #555', 
-        backgroundColor: '#fff'
-      },
-    };
+      parentPosition: parentNode.position,
+      existingBlocks: existingBlocks
+    });
 
     // The swimlane width update logic is handled in the appReducer (ADD_BLOCK case)
     dispatchAddBlock(newBlock);
@@ -276,7 +213,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
           return (
             <button 
               key={blockType}
-              onClick={() => createBlock(blockKindValue)}
+              onClick={() => createBlockInSwimlane(blockKindValue)}
               className="create-block-button"
               style={{ 
                 padding: '5px 10px',

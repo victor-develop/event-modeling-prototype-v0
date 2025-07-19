@@ -1,41 +1,50 @@
-import React, { useState, useRef } from 'react';
+import React, { memo } from 'react';
+import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
 
-export interface ProcessorNodeProps {
+interface ProcessorNodeProps {
   id: string;
-  data: {
+  data: { 
     label: string;
   };
+  selected: boolean;
+  onLabelChange?: (nodeId: string, label: string) => void;
 }
 
-const ProcessorNode: React.FC<ProcessorNodeProps> = ({ id, data }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [label, setLabel] = useState(data.label || 'Processor');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleDoubleClick = () => {
-    setIsEditing(true);
-    setTimeout(() => inputRef.current?.focus(), 0);
-  };
-  const handleBlur = () => setIsEditing(false);
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setLabel(e.target.value);
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') setIsEditing(false);
-  };
+const ProcessorNode: React.FC<ProcessorNodeProps> = ({
+  id,
+  data,
+  selected,
+  onLabelChange = () => {}
+}) => {
+  const {
+    label,
+    isEditing,
+    inputRef,
+    handleLabelChange,
+    handleDoubleClick,
+    handleBlur,
+    handleKeyDown
+  } = useNodeLabelEdit({
+    id,
+    initialLabel: data.label,
+    onLabelChange,
+    nodeType: 'ProcessorNode'
+  });
 
   return (
     <div
       style={{
         width: '100%',
         height: '100%',
-        border: '1px solid #6b7280',
+        border: `1px solid ${selected ? '#1a192b' : '#6b7280'}`,
         borderRadius: '5px',
         backgroundColor: '#d1d5db', // Gray
         color: '#222',
         padding: '10px',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 0 4px rgba(107,114,128,0.15)',
+        boxShadow: selected ? '0 0 0 2px #1a192b' : '0 0 4px rgba(107,114,128,0.15)',
       }}
     >
       <div 
@@ -47,7 +56,7 @@ const ProcessorNode: React.FC<ProcessorNodeProps> = ({ id, data }) => {
           paddingBottom: '5px'
         }}
       >
-        <div style={{ marginRight: '10px', fontSize: '16px' }}>
+        <div style={{ marginRight: '10px', fontSize: '20px' }}>
           ⚙️
         </div>
         {isEditing ? (
@@ -55,7 +64,7 @@ const ProcessorNode: React.FC<ProcessorNodeProps> = ({ id, data }) => {
             ref={inputRef}
             type="text"
             value={label}
-            onChange={handleChange}
+            onChange={handleLabelChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             style={{ 
@@ -64,7 +73,7 @@ const ProcessorNode: React.FC<ProcessorNodeProps> = ({ id, data }) => {
               border: 'none', 
               background: 'rgba(0,0,0,0.05)', 
               color: '#222',
-              fontSize: '0.9em', 
+              fontSize: '1em', 
               outline: 'none',
               borderRadius: '3px',
               padding: '2px 5px'
@@ -77,7 +86,7 @@ const ProcessorNode: React.FC<ProcessorNodeProps> = ({ id, data }) => {
               flex: 1,
               fontWeight: 'bold', 
               cursor: 'text', 
-              fontSize: '0.9em' 
+              fontSize: '1em' 
             }}
           >
             {label}
@@ -98,10 +107,30 @@ const ProcessorNode: React.FC<ProcessorNodeProps> = ({ id, data }) => {
       </div>
       
       {/* Handle placement matching Trigger node */}
-      <Handle type="target" position={Position.Left} id="in" style={{ background: '#222' }} />
-      <Handle type="source" position={Position.Right} id="out" style={{ background: '#222' }} />
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        id="in" 
+        style={{ 
+          background: '#fff',
+          width: '10px',
+          height: '10px',
+          border: '1px solid #6b7280'
+        }} 
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        id="out" 
+        style={{ 
+          background: '#fff',
+          width: '10px',
+          height: '10px',
+          border: '1px solid #6b7280'
+        }} 
+      />
     </div>
   );
 };
 
-export default ProcessorNode;
+export default memo(ProcessorNode);

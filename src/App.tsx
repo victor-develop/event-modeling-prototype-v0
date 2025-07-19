@@ -22,6 +22,7 @@ import type {
 import type { EventModelingEdge } from './types/edgeTypes';
 import { EdgePriority } from './types/edgeTypes';
 import { nanoid } from 'nanoid';
+import { createBlock, validateBlockInSwimlane } from './utils/blockCreation';
 
 import '@xyflow/react/dist/style.css';
 
@@ -152,177 +153,116 @@ const App = () => {
     });
   }, [dispatch]);
   
-  // Function to add a new trigger node within selected swimlane
+  // Function to add a new Trigger node within selected swimlane
   const addTrigger = useCallback(() => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding a Trigger.');
+      alert('Please select a swimlane first before adding a Trigger block.');
       return;
     }
     
-    // Find the selected swimlane
-    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    // Get the selected swimlane
+    const swimlane = nodes.find(n => n.id === selectedSwimlaneId);
     if (!swimlane) {
       console.warn('Selected swimlane not found');
       return;
     }
     
-    // Validate swimlane kind - triggers can only be added to trigger lanes
-    if (swimlane.data?.kind !== 'trigger') {
-      console.warn(`Cannot add Trigger to ${swimlane.data?.kind} swimlane`);
-      alert(`Cannot add a Trigger to this swimlane type. Triggers must be in a Trigger swimlane.`);
+    // Validate swimlane kind using the shared validation function
+    const validationError = validateBlockInSwimlane('trigger', swimlane.data?.kind);
+    if (validationError) {
+      console.warn(validationError);
+      alert(validationError);
       return;
     }
     
-    const id = nanoid();
-    // Calculate position within the swimlane
-    const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
-    
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
-    const blockGap = 160; // Horizontal gap between blocks
     
-    // Position new block after the last block in this lane
-    const xPosition = blocksInLane.length > 0 ?
-      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
-      swimlane.position.x + xOffset;
-      
-    const newTrigger = {
-      id,
-      type: 'trigger',
-      position: { 
-        x: xPosition, 
-        y: swimlane.position.y + yOffset 
-      },
-      data: { 
-        label: 'New Trigger',
-        triggerType: 'user',
-        condition: '',
-        schedule: ''
-      },
-      // Link to parent swimlane
+    // Use the shared block creation utility
+    const newTrigger = createBlock({
+      blockType: 'trigger',
       parentId: selectedSwimlaneId,
-      extent: 'parent' // Constrain to parent boundaries
-    };
+      parentPosition: swimlane.position,
+      existingBlocks: blocksInLane
+    });
 
     dispatchAddTrigger(newTrigger);
   }, [dispatchAddTrigger, selectedSwimlaneId, nodes]);
   
-  // Function to add a new command node within selected swimlane
+  // Function to add a new Command node within selected swimlane
   const addCommand = useCallback(() => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding a Command.');
+      alert('Please select a swimlane first before adding a Command block.');
       return;
     }
     
-    // Find the selected swimlane
-    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    // Get the selected swimlane
+    const swimlane = nodes.find(n => n.id === selectedSwimlaneId);
     if (!swimlane) {
       console.warn('Selected swimlane not found');
       return;
     }
     
-    // Validate swimlane kind - commands can only be added to command_view lanes
-    if (swimlane.data?.kind !== 'command_view') {
-      console.warn(`Cannot add Command to ${swimlane.data?.kind} swimlane`);
-      alert(`Cannot add a Command to this swimlane type. Commands must be in a Command & View swimlane.`);
+    // Validate swimlane kind using the shared validation function
+    const validationError = validateBlockInSwimlane('command', swimlane.data?.kind);
+    if (validationError) {
+      console.warn(validationError);
+      alert(validationError);
       return;
     }
     
-    const id = nanoid();
-    // Calculate position within the swimlane
-    const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
-    
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
-    const blockGap = 160; // Horizontal gap between blocks
     
-    // Position new block after the last block in this lane
-    const xPosition = blocksInLane.length > 0 ?
-      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
-      swimlane.position.x + xOffset;
-      
-    const newCommand = {
-      id,
-      type: 'command',
-      position: { 
-        x: xPosition, 
-        y: swimlane.position.y + yOffset 
-      },
-      data: { 
-        label: 'New Command',
-        parameters: {},
-        authorization: 'user',
-        validation: []
-      },
-      // Link to parent swimlane
+    // Use the shared block creation utility
+    const newCommand = createBlock({
+      blockType: 'command',
       parentId: selectedSwimlaneId,
-      extent: 'parent' // Constrain to parent boundaries
-    };
+      parentPosition: swimlane.position,
+      existingBlocks: blocksInLane
+    });
 
     dispatchAddCommand(newCommand);
   }, [dispatchAddCommand, selectedSwimlaneId, nodes]);
 
-  // Function to add a new event node within selected swimlane
+  // Function to add a new Event node within selected swimlane
   const addEvent = useCallback(() => {
     // Require a selected swimlane
     if (!selectedSwimlaneId) {
       console.warn('No swimlane selected. Please select a swimlane first.');
-      alert('Please select a swimlane first before adding an Event.');
+      alert('Please select a swimlane first before adding an Event block.');
       return;
     }
     
-    // Find the selected swimlane
-    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    // Get the selected swimlane
+    const swimlane = nodes.find(n => n.id === selectedSwimlaneId);
     if (!swimlane) {
       console.warn('Selected swimlane not found');
       return;
     }
     
-    // Validate swimlane kind - events can only be added to event lanes
-    if (swimlane.data?.kind !== 'event') {
-      console.warn(`Cannot add Event to ${swimlane.data?.kind} swimlane`);
-      alert(`Cannot add an Event to this swimlane type. Events must be in an Event swimlane.`);
+    // Validate swimlane kind using the shared validation function
+    const validationError = validateBlockInSwimlane('event', swimlane.data?.kind);
+    if (validationError) {
+      console.warn(validationError);
+      alert(validationError);
       return;
     }
     
-    const id = nanoid();
-    // Calculate position within the swimlane
-    const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
-    
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
-    const blockGap = 160; // Horizontal gap between blocks
     
-    // Position new block after the last block in this lane
-    const xPosition = blocksInLane.length > 0 ?
-      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
-      swimlane.position.x + xOffset;
-      
-    const newEvent = {
-      id,
-      type: 'event',
-      position: { 
-        x: xPosition, 
-        y: swimlane.position.y + yOffset 
-      },
-      data: { 
-        label: 'New Event',
-        payload: {},
-        version: '1.0',
-        timestamp: new Date().toISOString(),
-        isExternalEvent: false
-      },
-      // Link to parent swimlane
+    // Use the shared block creation utility
+    const newEvent = createBlock({
+      blockType: 'event',
       parentId: selectedSwimlaneId,
-      extent: 'parent' // Constrain to parent boundaries
-    };
+      parentPosition: swimlane.position,
+      existingBlocks: blocksInLane
+    });
 
     dispatchAddEvent(newEvent);
   }, [dispatchAddEvent, selectedSwimlaneId, nodes]);
@@ -336,52 +276,31 @@ const App = () => {
       return;
     }
     
-    // Find the selected swimlane
-    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    // Get the selected swimlane
+    const swimlane = nodes.find(n => n.id === selectedSwimlaneId);
     if (!swimlane) {
       console.warn('Selected swimlane not found');
       return;
     }
     
-    // Validate swimlane kind - views can only be added to command_view lanes
-    if (swimlane.data?.kind !== 'command_view') {
-      console.warn(`Cannot add View to ${swimlane.data?.kind} swimlane`);
-      alert(`Cannot add a View to this swimlane type. Views must be in a Command & View swimlane.`);
+    // Validate swimlane kind using the shared validation function
+    const validationError = validateBlockInSwimlane('view', swimlane.data?.kind);
+    if (validationError) {
+      console.warn(validationError);
+      alert(validationError);
       return;
     }
     
-    const id = nanoid();
-    // Calculate position within the swimlane
-    const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
-    
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
-    const blockGap = 160; // Horizontal gap between blocks
     
-    // Position new block after the last block in this lane
-    const xPosition = blocksInLane.length > 0 ?
-      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
-      swimlane.position.x + xOffset;
-      
-    const newView = {
-      id,
-      type: 'view',
-      position: { 
-        x: xPosition, 
-        y: swimlane.position.y + yOffset 
-      },
-      data: { 
-        label: 'New View',
-        sourceEvents: [],
-        viewType: 'read',
-        refreshPattern: 'on-demand',
-        permissions: []
-      },
-      // Link to parent swimlane
+    // Use the shared block creation utility
+    const newView = createBlock({
+      blockType: 'view',
       parentId: selectedSwimlaneId,
-      extent: 'parent' // Constrain to parent boundaries
-    };
+      parentPosition: swimlane.position,
+      existingBlocks: blocksInLane
+    });
 
     dispatchAddView(newView);
   }, [dispatchAddView, selectedSwimlaneId, nodes]);
@@ -395,49 +314,31 @@ const App = () => {
       return;
     }
     
-    // Find the selected swimlane
-    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    // Get the selected swimlane
+    const swimlane = nodes.find(n => n.id === selectedSwimlaneId);
     if (!swimlane) {
       console.warn('Selected swimlane not found');
       return;
     }
     
-    // Validate swimlane kind - UI can only be added to trigger lanes
-    if (swimlane.data?.kind !== 'trigger') {
-      console.warn(`Cannot add UI to ${swimlane.data?.kind} swimlane`);
-      alert(`Cannot add a UI block to this swimlane type. UI blocks must be in a Trigger swimlane.`);
+    // Validate swimlane kind using the shared validation function
+    const validationError = validateBlockInSwimlane('ui', swimlane.data?.kind);
+    if (validationError) {
+      console.warn(validationError);
+      alert(validationError);
       return;
     }
     
-    const id = nanoid();
-    // Calculate position within the swimlane
-    const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
-    
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
-    const blockGap = 160; // Horizontal gap between blocks
     
-    // Position new block after the last block in this lane
-    const xPosition = blocksInLane.length > 0 ?
-      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
-      swimlane.position.x + xOffset;
-      
-    const newUI = {
-      id,
-      type: 'UI',
-      position: { 
-        x: xPosition, 
-        y: swimlane.position.y + yOffset 
-      },
-      data: { 
-        label: 'New UI',
-        kind: 'UI'
-      },
-      // Link to parent swimlane
+    // Use the shared block creation utility
+    const newUI = createBlock({
+      blockType: 'ui',
       parentId: selectedSwimlaneId,
-      extent: 'parent' // Constrain to parent boundaries
-    };
+      parentPosition: swimlane.position,
+      existingBlocks: blocksInLane
+    });
 
     dispatchAddUI(newUI);
   }, [dispatchAddUI, selectedSwimlaneId, nodes]);
@@ -451,49 +352,31 @@ const App = () => {
       return;
     }
     
-    // Find the selected swimlane
-    const swimlane = nodes.find(node => node.id === selectedSwimlaneId);
+    // Get the selected swimlane
+    const swimlane = nodes.find(n => n.id === selectedSwimlaneId);
     if (!swimlane) {
       console.warn('Selected swimlane not found');
       return;
     }
     
-    // Validate swimlane kind - Processor can only be added to trigger lanes
-    if (swimlane.data?.kind !== 'trigger') {
-      console.warn(`Cannot add Processor to ${swimlane.data?.kind} swimlane`);
-      alert(`Cannot add a Processor block to this swimlane type. Processor blocks must be in a Trigger swimlane.`);
+    // Validate swimlane kind using the shared validation function
+    const validationError = validateBlockInSwimlane('processor', swimlane.data?.kind);
+    if (validationError) {
+      console.warn(validationError);
+      alert(validationError);
       return;
     }
     
-    const id = nanoid();
-    // Calculate position within the swimlane
-    const xOffset = 50; // Offset from the left edge of swimlane
-    const yOffset = 100; // Offset from the top edge of swimlane - increased to avoid overlapping with buttons
-    
     // Find existing blocks in this swimlane to position horizontally
     const blocksInLane = nodes.filter(n => n.parentId === selectedSwimlaneId);
-    const blockGap = 160; // Horizontal gap between blocks
     
-    // Position new block after the last block in this lane
-    const xPosition = blocksInLane.length > 0 ?
-      Math.max(...blocksInLane.map((b: any) => b.position.x)) + blockGap :
-      swimlane.position.x + xOffset;
-      
-    const newProcessor = {
-      id,
-      type: 'Processor',
-      position: { 
-        x: xPosition, 
-        y: swimlane.position.y + yOffset 
-      },
-      data: { 
-        label: 'New Processor',
-        kind: 'Processor'
-      },
-      // Link to parent swimlane
+    // Use the shared block creation utility
+    const newProcessor = createBlock({
+      blockType: 'processor',
       parentId: selectedSwimlaneId,
-      extent: 'parent' // Constrain to parent boundaries
-    };
+      parentPosition: swimlane.position,
+      existingBlocks: blocksInLane
+    });
 
     dispatchAddProcessor(newProcessor);
   }, [dispatchAddProcessor, selectedSwimlaneId, nodes]);
