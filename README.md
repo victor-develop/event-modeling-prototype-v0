@@ -280,7 +280,193 @@ To get this project up and running on your local machine, follow these steps:
 2. View pattern statistics and details in the respective tabs
 3. Select nodes or edges to inspect their detailed properties
 
+## Extending the Application
+
+### How to Add a New Building Block Type
+
+The application supports adding new building block types beyond the core four (Trigger, Command, Event, View). Here's how to add a new building block type:
+
+1. **Create the Node Component:**
+   - Create a new file in `src/components/nodes/` (e.g., `NewBlockNode.tsx`)
+   - Implement a React component that follows the styling patterns of existing nodes
+   - Use the following template structure:
+
+   ```typescript
+   import React, { useState, useRef } from 'react';
+   import { Handle, Position } from '@xyflow/react';
+
+   export interface NewBlockNodeProps {
+     id: string;
+     data: {
+       label: string;
+       // Add any block-specific properties here
+     };
+     selected: boolean;
+     onLabelChange: (nodeId: string, label: string) => void;
+   }
+
+   const NewBlockNode: React.FC<NewBlockNodeProps> = ({ id, data, selected, onLabelChange }) => {
+     // Implement label editing using useNodeLabelEdit hook or similar pattern
+     
+     return (
+       <div style={{
+         // Follow styling consistency with other nodes
+         width: '100%',
+         height: '100%',
+         border: `1px solid ${selected ? '#1a192b' : '#ddd'}`,
+         borderRadius: '5px',
+         backgroundColor: '#yourColor', // Choose a distinct color
+         padding: '10px',
+         display: 'flex',
+         flexDirection: 'column',
+         boxShadow: selected ? '0 0 0 2px #1a192b' : 'none',
+       }}>
+         {/* Header section with icon and label */}
+         <div style={{ /* Header styling */ }}>
+           <div style={{ marginRight: '10px', fontSize: '16px' }}>🔍</div>
+           {/* Label editing implementation */}
+         </div>
+         
+         {/* Description section */}
+         <div style={{ /* Description styling */ }}>
+           Block Description
+         </div>
+         
+         {/* Handles - position based on connection rules */}
+         <Handle type="target" position={Position.Left} id="in" />
+         <Handle type="source" position={Position.Right} id="out" />
+       </div>
+     );
+   };
+
+   export default NewBlockNode;
+   ```
+
+2. **Register the Node Type:**
+   - Add the new node type to `src/flow/customNodeTypes.tsx`:
+   ```typescript
+   import NewBlockNode from '../components/nodes/NewBlockNode';
+   
+   export const nodeTypes = {
+     // Existing node types
+     'NewBlock': NewBlockNode,  // Use PascalCase for the key
+   };
+   ```
+
+3. **Update Block Type Mapping:**
+   - In `src/components/SwimlaneNode.tsx`, add a mapping for the new block type:
+   ```typescript
+   // Map lowercase block type to React Flow node type
+   const getNodeType = (blockType: string) => {
+     switch (blockType.toLowerCase()) {
+       // Existing mappings
+       case 'newblock': return 'NewBlock';  // Map lowercase to PascalCase
+       default: return blockType;
+     }
+   };
+   ```
+
+4. **Add Event Handling:**
+   - In `src/state/eventSourcing.ts`, add a new action type and reducer case:
+   ```typescript
+   // Add action type
+   export type EventType = 
+     // Existing types
+     | 'ADD_NEWBLOCK'
+     // Other types
+   
+   // Add reducer case
+   case 'ADD_NEWBLOCK':
+     return {
+       ...state,
+       nodes: [...state.nodes, {
+         id: action.payload.id,
+         type: getNodeType('newblock'),  // Use the same function as in SwimlaneNode
+         position: action.payload.position,
+         data: { label: action.payload.label || 'New Block' },
+       }],
+     };
+   ```
+
+5. **Define Connection Rules:**
+   - Update connection validation in your pattern validation utilities to define:
+     - Which block types can connect to your new block
+     - Which block types your new block can connect to
+   - Example rule: "NewBlock can only accept connections from Event blocks and can only connect to View blocks"
+
+6. **Swimlane Restrictions:**
+   - Define which swimlane(s) can contain your new block type
+   - Update swimlane logic to enforce these restrictions
+
+7. **Styling Consistency Guidelines:**
+   - **Text Size:** Use 0.9em for labels, 0.8em for descriptions
+   - **Icon Size:** 16px for block icons
+   - **Colors:** Choose a distinct color that doesn't clash with existing blocks
+   - **Dimensions:** Match other blocks' width and height
+   - **Handles:** Position handles consistently (typically left for incoming, right for outgoing)
+   - **Borders:** 1px borders with slightly darker shade of the background color
+   - **Shadows:** Subtle shadows with 0 0 4px rgba(color, 0.15)
+
+### How to Add a New Swimlane Type
+
+1. **Define the Swimlane Kind:**
+   - Add a new swimlane kind to your swimlane type definitions
+   - Example: `export type SwimlaneKind = 'event' | 'command_view' | 'trigger' | 'new_lane';`
+
+2. **Update Swimlane Creation Logic:**
+   - Modify the swimlane creation function to support the new kind
+   - Define the swimlane's position in the vertical stack
+   - Set appropriate styling and labels
+
+3. **Define Block Type Restrictions:**
+   - Specify which block types are allowed in the new swimlane
+   - Update validation logic to enforce these restrictions
+
+4. **Update UI Components:**
+   - Add UI elements to create or interact with the new swimlane type
+   - Ensure consistent styling with existing swimlanes
+
+5. **Connection Validation:**
+   - Update connection validation rules to account for the new swimlane
+   - Define how blocks in this swimlane can connect to blocks in other swimlanes
+
+### Connection Rules and Restrictions
+
+When defining connection rules for new block types, consider:
+
+1. **Source and Target Compatibility:**
+   - Which block types can be sources for your new block
+   - Which block types your new block can target
+
+2. **Swimlane Crossing Rules:**
+   - Whether connections can cross between specific swimlanes
+   - Direction of allowed crossings (e.g., only top-to-bottom)
+
+3. **Pattern Validation:**
+   - How your new block fits into existing patterns (Command, View, Automation)
+   - Whether it creates new patterns that need validation
+
+4. **Handle Positioning:**
+   - Position handles based on expected connection directions
+   - Left handles for incoming connections, right handles for outgoing is the convention
+
+### Example: UI and Processor Blocks
+
+The application includes two specialized block types beyond the core four:
+
+1. **UI Block:**
+   - **Styling:** Purple background with computer icon (🖥️)
+   - **Connections:** Accepts connections only from View blocks
+   - **Swimlane:** Only allowed in 'trigger' swimlane
+   - **Handles:** Incoming handle on left, outgoing handle on right
+
+2. **Processor Block:**
+   - **Styling:** Gray background with gear icon (⚙️)
+   - **Connections:** Accepts connections from Event or View blocks
+   - **Swimlane:** Only allowed in 'trigger' swimlane
+   - **Handles:** Incoming handle on left, outgoing handle on right
+
+These examples demonstrate how specialized blocks can be added to extend the application's modeling capabilities while maintaining consistent styling and behavior.
+
 ## Todos
-- [ ] Trigger Lane should supports User Interface & Processor kind of building blocks
-- [ ] View node should support both incoming connections and outgoing connections (to User Interface or Processor kind of building blocks)
 - [ ] Do not fire a MOVE_NODE event when a node's actual position is NOT moved
