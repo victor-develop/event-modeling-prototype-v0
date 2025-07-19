@@ -24,7 +24,7 @@ export interface SwimlaneNodeData {
 export const ALLOWED_BLOCK_TYPES: Record<string, string[]> = {
   'event': ['Event'],
   'command_view': ['Command', 'View'],
-  'trigger': ['Trigger']
+  'trigger': ['Trigger', 'UI', 'Processor']
 };
 
 /**

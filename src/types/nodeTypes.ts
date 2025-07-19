@@ -35,6 +35,14 @@ export interface ViewNodeData extends BaseNodeData {
   permissions?: string[];
 }
 
+export interface UINodeData extends BaseNodeData {
+  // Add UI node data properties as needed
+}
+
+export interface ProcessorNodeData extends BaseNodeData {
+  // Add Processor node data properties as needed
+}
+
 // Node types with specific data
 export interface TriggerNode extends Node {
   type: 'trigger';
@@ -56,8 +64,33 @@ export interface ViewNode extends Node {
   data: ViewNodeData;
 }
 
+export interface UINode extends Node {
+  type: 'UI';
+  data: UINodeData;
+}
+
+export interface ProcessorNode extends Node {
+  type: 'Processor';
+  data: ProcessorNodeData;
+}
+
 // General Event Modeling node type
-export type EventModelingNode = TriggerNode | CommandNode | EventNode | ViewNode;
+export const NodeType = {
+  UI: 'UI',
+  PROCESSOR: 'Processor',
+  TRIGGER: 'trigger',
+  COMMAND: 'command',
+  EVENT: 'event',
+  VIEW: 'view',
+};
+
+export type EventModelingNode = 
+  | TriggerNode 
+  | CommandNode 
+  | EventNode 
+  | ViewNode 
+  | UINode 
+  | ProcessorNode;
 
 // Edge data with pattern information
 export interface EventModelingEdgeData {

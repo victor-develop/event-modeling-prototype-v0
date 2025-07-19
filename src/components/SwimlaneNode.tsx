@@ -95,14 +95,24 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
       case 'view':
         blockKind = BlockKind.VIEW;
         break;
+      case 'ui':
+        blockKind = BlockKind.UI;
+        break;
+      case 'processor':
+        blockKind = BlockKind.PROCESSOR;
+        break;
       default:
         console.error(`Unknown block type: ${blockType}`);
         return;
     }
 
+    // Map blockType to correct node type string for React Flow
+    let nodeType = blockType.toLowerCase();
+    if (nodeType === 'ui') nodeType = 'UI';
+    if (nodeType === 'processor') nodeType = 'Processor';
     const newBlock = {
       id: nanoid(),
-      type: blockType.toLowerCase(),
+      type: nodeType,
       position: { x: newX, y: topOffsetForBlocks },
       data: { 
         label: `${blockType} ${childNodes.length + 1}`,

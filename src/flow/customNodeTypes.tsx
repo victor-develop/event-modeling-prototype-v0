@@ -5,6 +5,8 @@ import TriggerNode from '../components/nodes/TriggerNode';
 import CommandNode from '../components/nodes/CommandNode';
 import EventNode from '../components/nodes/EventNode';
 import ViewNode from '../components/nodes/ViewNode';
+import UINode from '../components/nodes/UINode';
+import ProcessorNode from '../components/nodes/ProcessorNode';
 
 // The dispatch* functions must be passed in from App for correct closure
 export function createCustomNodeTypes({
@@ -38,6 +40,14 @@ export function createCustomNodeTypes({
             case 'view':
               dispatch({ type: 'ADD_VIEW', payload: blockData });
               break;
+            case 'ui':
+            case 'UI':
+              dispatch({ type: 'ADD_UI', payload: blockData });
+              break;
+            case 'processor':
+            case 'Processor':
+              dispatch({ type: 'ADD_PROCESSOR', payload: blockData });
+              break;
             default:
               console.error(`Unknown block type: ${blockData.type}`);
           }
@@ -50,5 +60,7 @@ export function createCustomNodeTypes({
     command: (nodeProps: any) => <CommandNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onParametersChange={dispatchUpdateCommandParameters} />,
     event: (nodeProps: any) => <EventNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onPayloadChange={dispatchUpdateEventPayload} />,
     view: (nodeProps: any) => <ViewNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onSourcesChange={dispatchUpdateViewSources} />,
+    UI: (nodeProps: any) => <UINode {...nodeProps} />,
+    Processor: (nodeProps: any) => <ProcessorNode {...nodeProps} />,
   };
 }

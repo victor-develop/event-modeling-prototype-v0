@@ -16,6 +16,8 @@ export const EventTypes = {
     ADD_COMMAND: 'ADD_COMMAND',
     ADD_EVENT: 'ADD_EVENT',
     ADD_VIEW: 'ADD_VIEW',
+    ADD_UI: 'ADD_UI',
+    ADD_PROCESSOR: 'ADD_PROCESSOR',
     UPDATE_NODE_LABEL: 'UPDATE_NODE_LABEL',
     UPDATE_COMMAND_PARAMETERS: 'UPDATE_COMMAND_PARAMETERS',
     UPDATE_EVENT_PAYLOAD: 'UPDATE_EVENT_PAYLOAD',
@@ -48,6 +50,8 @@ export type ModelingEditorEventType =
   | { type: typeof EventTypes.ModelingEditor.ADD_COMMAND; payload: any }
   | { type: typeof EventTypes.ModelingEditor.ADD_EVENT; payload: any }
   | { type: typeof EventTypes.ModelingEditor.ADD_VIEW; payload: any }
+  | { type: typeof EventTypes.ModelingEditor.ADD_UI; payload: any }
+  | { type: typeof EventTypes.ModelingEditor.ADD_PROCESSOR; payload: any }
   | { type: typeof EventTypes.ModelingEditor.UPDATE_NODE_LABEL; payload: { nodeId: string; label: string } }
   | { type: typeof EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS; payload: { nodeId: string; parameters: Record<string, string> } }
   | { type: typeof EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD; payload: { nodeId: string; payload: Record<string, any> } }
@@ -139,6 +143,8 @@ export function reduceCanvas(command: IntentionEventType, nodes: any[], edges: a
     case EventTypes.ModelingEditor.ADD_COMMAND:
     case EventTypes.ModelingEditor.ADD_EVENT:
     case EventTypes.ModelingEditor.ADD_VIEW:
+    case EventTypes.ModelingEditor.ADD_UI:
+    case EventTypes.ModelingEditor.ADD_PROCESSOR:
       newNodes = [...newNodes, command.payload];
       break;
     case EventTypes.ModelingEditor.UPDATE_NODE_LABEL:

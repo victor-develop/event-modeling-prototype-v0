@@ -123,8 +123,10 @@ const ViewNode: React.FC<ViewNodeProps> = ({
         </div>
       )}
       
-      {/* Only target handle on left - Views can only be targets */}
+      {/* Target handle on left - Views can be targets */}
       <Handle type="target" position={Position.Left} style={{ background: 'white' }} />
+      {/* Source handle on right - Views can now be sources for UI and Processor */}
+      <Handle type="source" position={Position.Right} style={{ background: 'white' }} />
     </div>
   );
 };

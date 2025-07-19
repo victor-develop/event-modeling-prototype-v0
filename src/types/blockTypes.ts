@@ -9,7 +9,9 @@ export const BlockKind = {
   TRIGGER: 'trigger',
   COMMAND: 'command',
   EVENT: 'event',
-  VIEW: 'view'
+  VIEW: 'view',
+  UI: 'UI',
+  PROCESSOR: 'Processor',
 } as const;
 
 export type BlockKind = typeof BlockKind[keyof typeof BlockKind];
