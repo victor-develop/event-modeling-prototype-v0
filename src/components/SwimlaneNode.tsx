@@ -23,6 +23,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
   const [label, setLabel] = useState(data.label);
   const [showControls, setShowControls] = useState(false);
   const [mouseX, setMouseX] = useState(0);
+  const [controlBarX, setControlBarX] = useState(0);
   const swimlaneRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -130,13 +131,21 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
       const rect = swimlaneRef.current.getBoundingClientRect();
       const relativeX = e.clientX - rect.left;
       setMouseX(relativeX);
+      
+      // Only reposition control bar if mouse is more than 300px away horizontally
+      const distance = Math.abs(relativeX - controlBarX);
+      if (distance > 300) {
+        setControlBarX(relativeX);
+      }
     }
-  }, []);
+  }, [controlBarX]);
   
   // Handle mouse enter/leave for showing/hiding control bar
   const handleMouseEnter = useCallback(() => {
     setShowControls(true);
-  }, []);
+    // Initialize control bar position to current mouse position on enter
+    setControlBarX(mouseX);
+  }, [mouseX]);
   
   const handleMouseLeave = useCallback(() => {
     setShowControls(false);
@@ -232,7 +241,7 @@ const SwimlaneNode: React.FC<SwimlaneNodeProps> = ({
           style={{
             position: 'absolute',
             top: 10, // Fixed at top of swimlane
-            left: Math.max(50, Math.min(mouseX, (swimlaneRef.current?.clientWidth || 500) - 100)),
+            left: Math.max(50, Math.min(controlBarX, (swimlaneRef.current?.clientWidth || 500) - 100)),
             transform: 'translateX(-50%)',
             display: 'flex',
             justifyContent: 'center',
