@@ -1,4 +1,4 @@
-import React from 'react';
+import { Position, getSmoothStepPath } from '@xyflow/react';
 
 // This function returns the edgeTypes object for React Flow
 export function createCustomEdgeTypes() {
@@ -14,23 +14,45 @@ export function createCustomEdgeTypes() {
           Object.assign(edgeStyle, { stroke: '#8844cc', strokeWidth: 2, strokeDasharray: '2,2', opacity: 0.8 });
         }
       }
+      
+      // Get source and target positions
+      const sourceX = props.sourceX;
+      const sourceY = props.sourceY;
+      const targetX = props.targetX;
+      const targetY = props.targetY;
+      
+      // Determine source and target positions based on the node positions
+      const sourcePosition = props.sourcePosition || Position.Right;
+      const targetPosition = props.targetPosition || Position.Left;
+      
+      // Generate a smooth step path
+      const [path] = getSmoothStepPath({
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+        borderRadius: 10, // Add a slight curve radius
+      });
+      
       return (
         <g>
           <path
             className="react-flow__edge-path"
-            d={props.pathPoints || `M${props.sourceX},${props.sourceY} L${props.targetX},${props.targetY}`}
+            d={path}
             style={edgeStyle}
           />
           {props.data?.condition && (
             <text
               className="react-flow__edge-text"
-              x={(props.sourceX + props.targetX) / 2}
-              y={(props.sourceY + props.targetY) / 2 - 10}
+              x={(sourceX + targetX) / 2}
+              y={(sourceY + targetY) / 2 - 10}
               textAnchor="middle"
               dominantBaseline="middle"
               style={{ fill: '#777', fontSize: '12px', background: '#f5f5f5' }}
             >
-              ?
+              {"?"}
             </text>
           )}
         </g>
