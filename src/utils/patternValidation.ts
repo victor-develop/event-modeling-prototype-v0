@@ -1,4 +1,5 @@
-// No imports needed
+import React from 'react';
+import { getEdgeStyle as centralizedGetEdgeStyle } from './edgeStyling';
 
 // Connection validation types
 export const ConnectionPattern = {
@@ -148,45 +149,13 @@ export const getConnectionPatternType = (
 
 /**
  * Get edge style based on the connection pattern
+ * @deprecated Use the centralized getEdgeStyle from edgeStyling.ts instead
  */
 export const getEdgeStyle = (
   sourceNode: SimpleNode | null,
   targetNode: SimpleNode | null
 ): React.CSSProperties => {
+  // Get the pattern type and use the centralized function
   const patternType = getConnectionPatternType(sourceNode, targetNode);
-  
-  // Command Pattern styling
-  if (patternType === ConnectionPattern.COMMAND_PATTERN) {
-    return {
-      stroke: '#333',
-      strokeWidth: 2,
-    };
-  }
-  
-  // View Pattern styling - dashed line to show data flow
-  if (patternType === ConnectionPattern.VIEW_PATTERN) {
-    return {
-      stroke: '#22a355', // Green to match view node
-      strokeWidth: 2,
-      strokeDasharray: '5,5',
-    };
-  }
-  
-  // Automation Pattern styling - dotted line with orange/purple gradient
-  if (patternType === ConnectionPattern.AUTOMATION_PATTERN) {
-    return {
-      stroke: '#8844cc', // Purple to match command node
-      strokeWidth: 2,
-      strokeDasharray: '2,2',
-      opacity: 0.8,
-    };
-  }
-  
-  // No Translation Pattern anymore
-  
-  // Default styling
-  return {
-    stroke: '#999',
-    strokeWidth: 1,
-  };
+  return centralizedGetEdgeStyle(patternType || undefined);
 };

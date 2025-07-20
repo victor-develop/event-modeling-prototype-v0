@@ -1,19 +1,30 @@
 import { Position, getSmoothStepPath } from '@xyflow/react';
+import { getEdgeStyle } from '../utils/edgeStyling';
+import { ConnectionPattern } from '../utils/patternValidation';
 
 // This function returns the edgeTypes object for React Flow
 export function createCustomEdgeTypes() {
   return {
     'command-pattern': (props: any) => {
-      const edgeStyle = { stroke: '#333', strokeWidth: 2 };
+      // Get pattern type from props or use default
+      let patternType: ConnectionPattern | undefined;
+      
       if (props.data?.patternType) {
         if (props.data.patternType === 'command') {
-          Object.assign(edgeStyle, { stroke: '#333', strokeWidth: 2 });
+          patternType = ConnectionPattern.COMMAND_PATTERN;
         } else if (props.data.patternType === 'view') {
-          Object.assign(edgeStyle, { stroke: '#22a355', strokeWidth: 2, strokeDasharray: '5,5' });
+          patternType = ConnectionPattern.VIEW_PATTERN;
         } else if (props.data.patternType === 'automation') {
-          Object.assign(edgeStyle, { stroke: '#8844cc', strokeWidth: 2, strokeDasharray: '2,2', opacity: 0.8 });
+          patternType = ConnectionPattern.AUTOMATION_PATTERN;
+        } else if (props.data.patternType === 'ui') {
+          patternType = ConnectionPattern.UI_PATTERN;
+        } else if (props.data.patternType === 'processor') {
+          patternType = ConnectionPattern.PROCESSOR_PATTERN;
         }
       }
+      
+      // Get edge style from centralized utility
+      const edgeStyle = getEdgeStyle(patternType);
       
       // Get source and target positions
       const sourceX = props.sourceX;

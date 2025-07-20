@@ -886,8 +886,8 @@ const edgeTypes = useMemo(() => createCustomEdgeTypes(), []);
           edges={edges}
           defaultEdgeOptions={{
             animated: false,
-            markerEnd: { type: MarkerType.ArrowClosed },
             type: 'command-pattern'
+            // Edge styling is now handled by the centralized edgeStyling utility
           }}
           onNodesChange={onNodesChange}
           onNodeDragStop={onNodeDragStop}
