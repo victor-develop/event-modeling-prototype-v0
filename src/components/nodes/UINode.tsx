@@ -1,4 +1,5 @@
 import React, { memo, useCallback } from 'react';
+import CloseButton from '../common/CloseButton';
 import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
 
@@ -59,29 +60,7 @@ const UINode: React.FC<UINodeProps> = ({
       }}
     >
       {/* Close button */}
-      <div 
-        onClick={handleRemoveClick}
-        style={{
-          position: 'absolute',
-          top: '2px',
-          right: '2px',
-          width: '16px',
-          height: '16px',
-          borderRadius: '50%',
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          cursor: 'pointer',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#666',
-          border: '1px solid #ccc',
-          zIndex: 10,
-        }}
-      >
-        ×
-      </div>
+      <CloseButton onClick={handleRemoveClick} />
       <div 
         style={{ 
           display: 'flex', 
