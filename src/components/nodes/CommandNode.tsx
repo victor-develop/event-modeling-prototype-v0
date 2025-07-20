@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
 
@@ -11,6 +11,7 @@ interface CommandNodeProps {
   selected: boolean;
   onLabelChange: (nodeId: string, label: string) => void;
   onParametersChange?: (nodeId: string, parameters: Record<string, string>) => void;
+  onRemove?: (nodeId: string) => void;
 }
 
 const CommandNode: React.FC<CommandNodeProps> = ({
@@ -19,6 +20,7 @@ const CommandNode: React.FC<CommandNodeProps> = ({
   selected,
   onLabelChange,
   onParametersChange,
+  onRemove,
 }) => {
   const {
     label,
@@ -35,21 +37,53 @@ const CommandNode: React.FC<CommandNodeProps> = ({
     nodeType: 'CommandNode'
   });
 
+  const handleRemoveClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRemove) {
+      onRemove(id);
+    }
+  }, [id, onRemove]);
+
   return (
     <div
       style={{
+        padding: '10px',
+        borderRadius: '5px',
+        backgroundColor: '#3498db',
+        color: 'white',
+        border: `1px solid ${selected ? '#1a192b' : '#ddd'}`,
         width: '100%',
         height: '100%',
-        border: `1px solid ${selected ? '#1a192b' : '#ddd'}`,
-        borderRadius: '5px',
-        backgroundColor: '#3498db', // Blue for command
-        color: 'white',
-        padding: '10px',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: selected ? '0 0 0 2px #1a192b' : 'none',
+        position: 'relative',
       }}
     >
+      {/* Close button */}
+      <div 
+        onClick={handleRemoveClick}
+        style={{
+          position: 'absolute',
+          top: '2px',
+          right: '2px',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          color: '#666',
+          border: '1px solid #ccc',
+          zIndex: 10,
+        }}
+      >
+        ×
+      </div>
       <div 
         style={{ 
           display: 'flex', 

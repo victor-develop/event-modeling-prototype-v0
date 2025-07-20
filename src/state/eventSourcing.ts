@@ -24,6 +24,7 @@ export const EventTypes = {
     UPDATE_VIEW_SOURCES: 'UPDATE_VIEW_SOURCES',
     MOVE_BLOCK: 'MOVE_BLOCK',
     MOVE_NODE: 'MOVE_NODE',
+    REMOVE_NODE: 'REMOVE_NODE',
   },
   EventSourcing: {
     TIME_TRAVEL: 'TIME_TRAVEL',
@@ -57,7 +58,8 @@ export type ModelingEditorEventType =
   | { type: typeof EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD; payload: { nodeId: string; payload: Record<string, any> } }
   | { type: typeof EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES; payload: { nodeId: string; sourceEvents: string[] } }
   | { type: typeof EventTypes.ModelingEditor.MOVE_BLOCK; payload: { nodeId: string; position: { x: number; y: number } } }
-  | { type: typeof EventTypes.ModelingEditor.MOVE_NODE; payload: { nodeId: string; position: { x: number; y: number } } };
+  | { type: typeof EventTypes.ModelingEditor.MOVE_NODE; payload: { nodeId: string; position: { x: number; y: number } } }
+  | { type: typeof EventTypes.ModelingEditor.REMOVE_NODE; payload: { nodeId: string } };
 
 export type EventSourcingEventType =
    { type: typeof EventTypes.EventSourcing.TIME_TRAVEL; payload: { index: number } }
@@ -203,6 +205,15 @@ export function reduceCanvas(command: IntentionEventType, nodes: any[], edges: a
         node.id === command.payload.nodeId
           ? { ...node, position: command.payload.position }
           : node
+      );
+      break;
+    case EventTypes.ModelingEditor.REMOVE_NODE:
+      // Remove the node
+      newNodes = newNodes.filter(node => node.id !== command.payload.nodeId);
+      // Remove any connected edges
+      newEdges = newEdges.filter(edge => 
+        edge.source !== command.payload.nodeId && 
+        edge.target !== command.payload.nodeId
       );
       break;
     default:

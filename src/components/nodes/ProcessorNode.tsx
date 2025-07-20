@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
 
@@ -9,13 +9,15 @@ interface ProcessorNodeProps {
   };
   selected: boolean;
   onLabelChange?: (nodeId: string, label: string) => void;
+  onRemove?: (nodeId: string) => void;
 }
 
 const ProcessorNode: React.FC<ProcessorNodeProps> = ({
   id,
   data,
   selected,
-  onLabelChange = () => {}
+  onLabelChange = () => {},
+  onRemove
 }) => {
   const {
     label,
@@ -32,6 +34,14 @@ const ProcessorNode: React.FC<ProcessorNodeProps> = ({
     nodeType: 'ProcessorNode'
   });
 
+  // Handle remove button click
+  const handleRemoveClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRemove) {
+      onRemove(id);
+    }
+  }, [id, onRemove]);
+
   return (
     <div
       style={{
@@ -45,8 +55,33 @@ const ProcessorNode: React.FC<ProcessorNodeProps> = ({
         display: 'flex',
         flexDirection: 'column',
         boxShadow: selected ? '0 0 0 2px #1a192b' : '0 0 4px rgba(107,114,128,0.15)',
+        position: 'relative',
       }}
     >
+      {/* Close button */}
+      <div 
+        onClick={handleRemoveClick}
+        style={{
+          position: 'absolute',
+          top: '2px',
+          right: '2px',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          color: '#666',
+          border: '1px solid #ccc',
+          zIndex: 10,
+        }}
+      >
+        ×
+      </div>
       <div 
         style={{ 
           display: 'flex', 

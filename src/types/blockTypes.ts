@@ -34,8 +34,9 @@ export type BlockNodeData = {
 export interface BlockNodeProps {
   id: string;
   data: BlockNodeData;
-  // Prop for dispatching events
+  // Props for dispatching events
   onLabelChange: (nodeId: string, label: string) => void;
+  onRemove?: (nodeId: string) => void;
 }
 
 /**

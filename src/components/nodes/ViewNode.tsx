@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
 
@@ -11,6 +11,7 @@ interface ViewNodeProps {
   selected: boolean;
   onLabelChange: (nodeId: string, label: string) => void;
   onSourcesChange?: (nodeId: string, sourceEvents: string[]) => void;
+  onRemove?: (nodeId: string) => void;
 }
 
 const ViewNode: React.FC<ViewNodeProps> = ({
@@ -19,6 +20,7 @@ const ViewNode: React.FC<ViewNodeProps> = ({
   selected,
   onLabelChange,
   onSourcesChange,
+  onRemove,
 }) => {
   const {
     label,
@@ -35,6 +37,14 @@ const ViewNode: React.FC<ViewNodeProps> = ({
     nodeType: 'ViewNode'
   });
 
+  // Handle remove button click
+  const handleRemoveClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRemove) {
+      onRemove(id);
+    }
+  }, [id, onRemove]);
+
   return (
     <div
       style={{
@@ -48,8 +58,33 @@ const ViewNode: React.FC<ViewNodeProps> = ({
         display: 'flex',
         flexDirection: 'column',
         boxShadow: selected ? '0 0 0 2px #1a192b' : 'none',
+        position: 'relative',
       }}
     >
+      {/* Close button */}
+      <div 
+        onClick={handleRemoveClick}
+        style={{
+          position: 'absolute',
+          top: '2px',
+          right: '2px',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          color: '#666',
+          border: '1px solid #ccc',
+          zIndex: 10,
+        }}
+      >
+        ×
+      </div>
       <div 
         style={{ 
           display: 'flex', 

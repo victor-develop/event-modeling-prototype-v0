@@ -14,13 +14,15 @@ export function createCustomNodeTypes({
   dispatchUpdateNodeLabel,
   dispatchUpdateCommandParameters,
   dispatchUpdateEventPayload,
-  dispatchUpdateViewSources
+  dispatchUpdateViewSources,
+  dispatchRemoveNode
 }: {
   dispatch: any,
   dispatchUpdateNodeLabel: (nodeId: string, label: string) => void,
   dispatchUpdateCommandParameters: (nodeId: string, parameters: Record<string, string>) => void,
   dispatchUpdateEventPayload: (nodeId: string, payload: Record<string, any>) => void,
-  dispatchUpdateViewSources: (nodeId: string, sourceEvents: string[]) => void
+  dispatchUpdateViewSources: (nodeId: string, sourceEvents: string[]) => void,
+  dispatchRemoveNode: (nodeId: string) => void
 }) {
   return {
     swimlane: (nodeProps: any) => (
@@ -55,12 +57,12 @@ export function createCustomNodeTypes({
         dispatchUpdateNodeLabel={dispatchUpdateNodeLabel}
       />
     ),
-    block: (nodeProps: any) => <BlockNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} />,
-    trigger: (nodeProps: any) => <TriggerNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} />,
-    command: (nodeProps: any) => <CommandNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onParametersChange={dispatchUpdateCommandParameters} />,
-    event: (nodeProps: any) => <EventNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onPayloadChange={dispatchUpdateEventPayload} />,
-    view: (nodeProps: any) => <ViewNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onSourcesChange={dispatchUpdateViewSources} />,
-    UI: (nodeProps: any) => <UINode {...nodeProps} />,
-    Processor: (nodeProps: any) => <ProcessorNode {...nodeProps} />,
+    block: (nodeProps: any) => <BlockNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onRemove={dispatchRemoveNode} />,
+    trigger: (nodeProps: any) => <TriggerNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onRemove={dispatchRemoveNode} />,
+    command: (nodeProps: any) => <CommandNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onParametersChange={dispatchUpdateCommandParameters} onRemove={dispatchRemoveNode} />,
+    event: (nodeProps: any) => <EventNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onPayloadChange={dispatchUpdateEventPayload} onRemove={dispatchRemoveNode} />,
+    view: (nodeProps: any) => <ViewNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onSourcesChange={dispatchUpdateViewSources} onRemove={dispatchRemoveNode} />,
+    UI: (nodeProps: any) => <UINode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onRemove={dispatchRemoveNode} />,
+    Processor: (nodeProps: any) => <ProcessorNode {...nodeProps} onLabelChange={dispatchUpdateNodeLabel} onRemove={dispatchRemoveNode} />,
   };
 }

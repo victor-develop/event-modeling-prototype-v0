@@ -623,6 +623,16 @@ const dispatchUpdateViewSources = useCallback(
   },
   [dispatch]
 );
+
+const dispatchRemoveNode = useCallback(
+  (nodeId: string) => {
+    dispatch({
+      type: EventTypes.ModelingEditor.REMOVE_NODE,
+      payload: { nodeId }
+    });
+  },
+  [dispatch]
+);
 // --- End memoized dispatchUpdate* functions ---
   
   // Time travel functionality
@@ -843,8 +853,9 @@ const customNodeTypes = useMemo(() => createCustomNodeTypes({
   dispatchUpdateNodeLabel,
   dispatchUpdateCommandParameters,
   dispatchUpdateEventPayload,
-  dispatchUpdateViewSources
-}), [dispatch, dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources]);
+  dispatchUpdateViewSources,
+  dispatchRemoveNode
+}), [dispatch, dispatchUpdateNodeLabel, dispatchUpdateCommandParameters, dispatchUpdateEventPayload, dispatchUpdateViewSources, dispatchRemoveNode]);
 
 // Define custom edge types with appropriate styling and enhanced edge data
 const edgeTypes = useMemo(() => createCustomEdgeTypes(), []);

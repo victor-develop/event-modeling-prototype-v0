@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { Handle, Position } from '@xyflow/react';
 import type { BlockNodeProps } from '../types/blockTypes';
-import { BlockKind, BLOCK_KIND_COLORS, BLOCK_KIND_BORDERS, BLOCK_KIND_ICONS } from '../types/blockTypes';
+import { BLOCK_KIND_COLORS, BLOCK_KIND_BORDERS, BLOCK_KIND_ICONS } from '../types/blockTypes';
 
 // Using BlockNodeProps type from blockTypes.ts
 
@@ -9,8 +9,8 @@ const BlockNode: React.FC<BlockNodeProps> = ({
   id,
   data,
   onLabelChange,
+  onRemove,
 }) => {
-  const { } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +58,13 @@ const BlockNode: React.FC<BlockNodeProps> = ({
   const blockBorder = BLOCK_KIND_BORDERS[blockKind] || '#cccccc';
   const blockIcon = BLOCK_KIND_ICONS[blockKind] || '📄';
 
+  const handleRemoveClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRemove) {
+      onRemove(id);
+    }
+  }, [id, onRemove]);
+
   return (
     <div
       style={{
@@ -72,8 +79,33 @@ const BlockNode: React.FC<BlockNodeProps> = ({
         alignItems: 'center',
         padding: '10px',
         boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+        position: 'relative',
       }}
     >
+      {/* Close button */}
+      <div 
+        onClick={handleRemoveClick}
+        style={{
+          position: 'absolute',
+          top: '2px',
+          right: '2px',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          color: '#666',
+          border: '1px solid #ccc',
+          zIndex: 10,
+        }}
+      >
+        ×
+      </div>
       <div style={{ 
         fontSize: '16px', 
         marginBottom: '5px' 

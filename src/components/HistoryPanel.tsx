@@ -290,15 +290,21 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                       onClick={(e) => toggleEventDetails(index, e)}
                       style={{
                         background: 'none',
-                        border: 'none',
+                        border: '1px solid #ddd',
                         cursor: 'pointer',
-                        fontSize: '12px',
-                        padding: '2px 5px',
-                        borderRadius: '3px',
+                        fontSize: '14px',
+                        padding: '0px 6px',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         backgroundColor: '#f0f0f0',
                       }}
+                      title={expandedEventIndex === index ? 'Hide details' : 'Show details'}
                     >
-                      {expandedEventIndex === index ? 'Hide JSON' : 'Show JSON'}
+                      {expandedEventIndex === index ? '−' : '+'}
                     </button>
                   </div>
                   {event.payload && event.payload.id && <div style={{ fontSize: '12px', color: '#666' }}>ID: {event.payload.id}</div>}
