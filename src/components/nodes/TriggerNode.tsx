@@ -1,4 +1,5 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
+import CloseButton from '../common/CloseButton';
 import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
 
@@ -10,6 +11,7 @@ interface TriggerNodeProps {
   };
   selected: boolean;
   onLabelChange: (nodeId: string, label: string) => void;
+  onRemove?: (nodeId: string) => void;
 }
 
 const TriggerNode: React.FC<TriggerNodeProps> = ({
@@ -17,6 +19,7 @@ const TriggerNode: React.FC<TriggerNodeProps> = ({
   data,
   selected,
   onLabelChange,
+  onRemove,
 }) => {
   const {
     label,
@@ -46,6 +49,14 @@ const TriggerNode: React.FC<TriggerNodeProps> = ({
     }
   };
 
+  // Handle remove button click
+  const handleRemoveClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRemove) {
+      onRemove(id);
+    }
+  }, [id, onRemove]);
+
   return (
     <div
       style={{
@@ -58,8 +69,11 @@ const TriggerNode: React.FC<TriggerNodeProps> = ({
         display: 'flex',
         flexDirection: 'column',
         boxShadow: selected ? '0 0 0 2px #1a192b' : 'none',
+        position: 'relative',
       }}
     >
+      {/* Close button */}
+      <CloseButton onClick={handleRemoveClick} />
       <div 
         style={{ 
           display: 'flex', 
