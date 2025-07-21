@@ -11,7 +11,7 @@ export const EdgeMarkers: React.FC = () => {
         <marker
           id="arrowclosed"
           viewBox="0 0 10 10"
-          refX="5"
+          refX="10"
           refY="5"
           markerWidth="6"
           markerHeight="6"
