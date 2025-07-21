@@ -203,7 +203,11 @@ export function reduceCanvas(command: IntentionEventType, nodes: any[], edges: a
     case EventTypes.ModelingEditor.MOVE_NODE:
       newNodes = newNodes.map(node =>
         node.id === command.payload.nodeId
-          ? { ...node, position: command.payload.position }
+          ? { 
+              ...node, 
+              position: command.payload.position,
+              positionPerDrop: command.payload.position // Store the position after drop
+            }
           : node
       );
       break;

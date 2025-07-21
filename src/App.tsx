@@ -534,14 +534,25 @@ const AppContent = () => {
         finalPosition.y = originalNode.position.y;
       }
       
-      // Dispatch the move event with constrained position
-      dispatch({
-        type: EventTypes.ModelingEditor.MOVE_NODE,
-        payload: {
-          nodeId: node.id,
-          position: finalPosition
-        }
-      });
+      // Compare with positionPerDrop (if exists) to determine if we should dispatch MOVE_NODE
+      const currentPositionPerDrop = originalNode.positionPerDrop || {};
+      const positionChanged = 
+        currentPositionPerDrop.x !== finalPosition.x || 
+        currentPositionPerDrop.y !== finalPosition.y;
+      
+      // Only dispatch if position has changed from last saved positionPerDrop
+      if (positionChanged) {
+        console.log(`Position changed for ${node.id}, dispatching MOVE_NODE`);
+        dispatch({
+          type: EventTypes.ModelingEditor.MOVE_NODE,
+          payload: {
+            nodeId: node.id,
+            position: finalPosition
+          }
+        });
+      } else {
+        console.log(`Position unchanged for ${node.id}, skipping MOVE_NODE dispatch`);
+      }
     },
     [dispatch, nodes]
   );

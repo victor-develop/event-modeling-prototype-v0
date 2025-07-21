@@ -1,4 +1,9 @@
-import type { Node, Edge } from '@xyflow/react';
+import type { Node as ReactFlowNode, Edge } from '@xyflow/react';
+
+// Extended Node type with positionPerDrop property
+export interface Node extends ReactFlowNode {
+  positionPerDrop?: { x: number; y: number };
+}
 
 // Base node types with common properties
 export interface BaseNodeData {
