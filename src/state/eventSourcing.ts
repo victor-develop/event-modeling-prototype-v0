@@ -1,4 +1,4 @@
-// State management and event sourcing for Event Modeling App
+// State management and event sourcing for Event Modeling App using functional programming patterns
 import { applyEdgeChanges, applyNodeChanges, MarkerType } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Connection } from '@xyflow/react';
 
@@ -91,57 +91,171 @@ export const initialState: AppState = {
   snapshotIndex: -1,
 };
 
-// --- Event Sourcing Logic ---
-export const applyEvents = (
-  events: IntentionEventType[],
-  targetIndex: number,
-  initialNodes: any[] = [],
-  initialEdges: any[] = [],
-  startIndex: number = 0,
-): { nodes: any[]; edges: any[] } => {
-  let tempNodes: any[] = [...initialNodes];
-  let tempEdges: any[] = [...initialEdges];
+// --- Functional Programming Utilities ---
+type Reducer<S, A> = (state: S, action: A) => S;
+type CanvasState = { nodes: any[], edges: any[] };
 
-  for (let i = startIndex; i <= targetIndex; i++) {
-    const event = events[i];
-    const reducedResult = reduceCanvas(event, tempNodes, tempEdges);
-    tempNodes = reducedResult.nodes;
-    tempEdges = reducedResult.edges;
-  }
-  return { nodes: tempNodes, edges: tempEdges };
+// Function composition utility
+const pipe = <T>(...fns: Array<(arg: T) => T>) => 
+  (value: T): T => fns.reduce((acc, fn) => fn(acc), value);
+
+// --- Event Handlers ---
+
+// ReactFlow event handlers
+const handleChangeNodes = (payload: NodeChange[], state: CanvasState): CanvasState => ({
+  ...state,
+  nodes: applyNodeChanges(payload, state.nodes)
+});
+
+const handleChangeEdges = (payload: EdgeChange[], state: CanvasState): CanvasState => ({
+  ...state,
+  edges: applyEdgeChanges(payload, state.edges)
+});
+
+const handleNewConnection = (payload: Connection, state: CanvasState): CanvasState => {
+  if (!payload.source || !payload.target) return state;
+  
+  const extendedConnection = payload as any;
+  const newEdge = {
+    id: `${payload.source}-${payload.target}-${Date.now()}`,
+    source: payload.source,
+    target: payload.target,
+    animated: extendedConnection.animated || false,
+    style: extendedConnection.style || {},
+    markerEnd: extendedConnection.markerEnd || { type: MarkerType.ArrowClosed },
+    type: 'command-pattern',
+    data: extendedConnection.data || { pattern: 'default' }
+  };
+  
+  return {
+    ...state,
+    edges: [...state.edges, newEdge]
+  };
 };
 
-export function reduceCanvas(command: IntentionEventType, nodes: any[], edges: any[]) {
-  let newNodes = [...nodes];
-  let newEdges = [...edges];
+// Node addition handlers
+const handleAddNode = (payload: any, state: CanvasState): CanvasState => ({
+  ...state,
+  nodes: [...state.nodes, payload]
+});
 
+// Handle adding blocks that might require parent swimlane width update
+const handleAddBlock = (payload: any, state: CanvasState): CanvasState => {
+  const addedNodeState = handleAddNode(payload, state);
+  
+  // Update parent swimlane width if needed
+  const updatedNodes = addedNodeState.nodes.map((node) => {
+    if (node.id === payload.parentId) {
+      const currentSwimlaneWidth = node.style?.width || 800;
+      const potentialRightEdge = payload.position.x + (payload.style?.width || 100) + 20;
+      
+      if (potentialRightEdge > currentSwimlaneWidth) {
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            width: potentialRightEdge,
+          },
+        };
+      }
+    }
+    return node;
+  });
+  
+  return {
+    ...addedNodeState,
+    nodes: updatedNodes
+  };
+};
+
+// Node update handlers
+const updateNodeProperty = <T>(
+  nodeId: string, 
+  propertyPath: string[], 
+  value: T, 
+  state: CanvasState
+): CanvasState => {
+  const updatedNodes = state.nodes.map(node => {
+    if (node.id !== nodeId) return node;
+    
+    // Create a deep copy of the node
+    const updatedNode = { ...node };
+    
+    // Navigate to the property path and update the value
+    let current: any = updatedNode;
+    for (let i = 0; i < propertyPath.length - 1; i++) {
+      const key = propertyPath[i];
+      current[key] = current[key] ? { ...current[key] } : {};
+      current = current[key];
+    }
+    
+    // Set the final property
+    current[propertyPath[propertyPath.length - 1]] = value;
+    
+    return updatedNode;
+  });
+  
+  return {
+    ...state,
+    nodes: updatedNodes
+  };
+};
+
+const handleUpdateNodeLabel = (payload: { nodeId: string; label: string }, state: CanvasState): CanvasState => 
+  updateNodeProperty(payload.nodeId, ['data', 'label'], payload.label, state);
+
+const handleUpdateCommandParameters = (payload: { nodeId: string; parameters: Record<string, string> }, state: CanvasState): CanvasState => 
+  updateNodeProperty(payload.nodeId, ['data', 'parameters'], payload.parameters, state);
+
+const handleUpdateEventPayload = (payload: { nodeId: string; payload: Record<string, any> }, state: CanvasState): CanvasState => 
+  updateNodeProperty(payload.nodeId, ['data', 'payload'], payload.payload, state);
+
+const handleUpdateViewSources = (payload: { nodeId: string; sourceEvents: string[] }, state: CanvasState): CanvasState => 
+  updateNodeProperty(payload.nodeId, ['data', 'sourceEvents'], payload.sourceEvents, state);
+
+const handleMoveNode = (payload: { nodeId: string; position: { x: number; y: number } }, state: CanvasState): CanvasState => {
+  const updatedNodes = state.nodes.map(node => 
+    node.id === payload.nodeId
+      ? { 
+          ...node, 
+          position: payload.position,
+          positionPerDrop: payload.position // Store the position after drop
+        }
+      : node
+  );
+  
+  return {
+    ...state,
+    nodes: updatedNodes
+  };
+};
+
+const handleRemoveNode = (payload: { nodeId: string }, state: CanvasState): CanvasState => ({
+  ...state,
+  nodes: state.nodes.filter(node => node.id !== payload.nodeId),
+  edges: state.edges.filter(edge => 
+    edge.source !== payload.nodeId && 
+    edge.target !== payload.nodeId
+  )
+});
+
+// --- Canvas Reducer ---
+export const reduceCanvas = (command: IntentionEventType, nodes: any[], edges: any[]): CanvasState => {
+  const state: CanvasState = { nodes, edges };
+  
   switch (command.type) {
     case EventTypes.ReactFlow.CHANGE_NODES:
-      newNodes = applyNodeChanges(command.payload, newNodes);
-      break;
+      return handleChangeNodes(command.payload, state);
+      
     case EventTypes.ReactFlow.CHANGE_EDGES:
-      newEdges = applyEdgeChanges(command.payload, newEdges);
-      break;
+      return handleChangeEdges(command.payload, state);
+      
     case EventTypes.ReactFlow.NEW_CONNECTION:
-      const connection = command.payload;
-      if (connection.source && connection.target) {
-        const extendedConnection = connection as any;
-        const newEdge = {
-          id: `${connection.source}-${connection.target}-${Date.now()}`,
-          source: connection.source,
-          target: connection.target,
-          animated: extendedConnection.animated || false,
-          style: extendedConnection.style || {},
-          markerEnd: extendedConnection.markerEnd || { type: MarkerType.ArrowClosed },
-          type: 'command-pattern',
-          data: extendedConnection.data || { pattern: 'default' }
-        };
-        newEdges = [...newEdges, newEdge];
-      }
-      break;
+      return handleNewConnection(command.payload, state);
+      
     case EventTypes.ModelingEditor.ADD_SWIMLANE:
-      newNodes = [...newNodes, command.payload];
-      break;
+      return handleAddNode(command.payload, state);
+      
     case EventTypes.ModelingEditor.ADD_BLOCK:
     case EventTypes.ModelingEditor.ADD_TRIGGER:
     case EventTypes.ModelingEditor.ADD_COMMAND:
@@ -149,141 +263,132 @@ export function reduceCanvas(command: IntentionEventType, nodes: any[], edges: a
     case EventTypes.ModelingEditor.ADD_VIEW:
     case EventTypes.ModelingEditor.ADD_UI:
     case EventTypes.ModelingEditor.ADD_PROCESSOR:
-      // Add the new block
-      newNodes = [...newNodes, command.payload];
+      return handleAddBlock(command.payload, state);
       
-      // Update the parent swimlane width if needed
-      newNodes = newNodes.map((node) => {
-        if (node.id === command.payload.parentId) {
-          const currentSwimlaneWidth = node.style?.width || 800;
-          const potentialRightEdge = command.payload.position.x + (command.payload.style?.width || 100) + 20;
-          
-          if (potentialRightEdge > currentSwimlaneWidth) {
-            return {
-              ...node,
-              style: {
-                ...node.style,
-                width: potentialRightEdge,
-              },
-            };
-          }
-        }
-        return node;
-      });
-      break;
     case EventTypes.ModelingEditor.UPDATE_NODE_LABEL:
-      newNodes = newNodes.map(node =>
-        node.id === command.payload.nodeId
-          ? { ...node, data: { ...node.data, label: command.payload.label } }
-          : node
-      );
-      break;
+      return handleUpdateNodeLabel(command.payload, state);
+      
     case EventTypes.ModelingEditor.UPDATE_COMMAND_PARAMETERS:
-      newNodes = newNodes.map(node =>
-        node.id === command.payload.nodeId
-          ? { ...node, data: { ...node.data, parameters: command.payload.parameters } }
-          : node
-      );
-      break;
+      return handleUpdateCommandParameters(command.payload, state);
+      
     case EventTypes.ModelingEditor.UPDATE_EVENT_PAYLOAD:
-      newNodes = newNodes.map(node =>
-        node.id === command.payload.nodeId
-          ? { ...node, data: { ...node.data, payload: command.payload.payload } }
-          : node
-      );
-      break;
+      return handleUpdateEventPayload(command.payload, state);
+      
     case EventTypes.ModelingEditor.UPDATE_VIEW_SOURCES:
-      newNodes = newNodes.map(node =>
-        node.id === command.payload.nodeId
-          ? { ...node, data: { ...node.data, sourceEvents: command.payload.sourceEvents } }
-          : node
-      );
-      break;
+      return handleUpdateViewSources(command.payload, state);
+      
     case EventTypes.ModelingEditor.MOVE_BLOCK:
     case EventTypes.ModelingEditor.MOVE_NODE:
-      newNodes = newNodes.map(node =>
-        node.id === command.payload.nodeId
-          ? { 
-              ...node, 
-              position: command.payload.position,
-              positionPerDrop: command.payload.position // Store the position after drop
-            }
-          : node
-      );
-      break;
+      return handleMoveNode(command.payload, state);
+      
     case EventTypes.ModelingEditor.REMOVE_NODE:
-      // Remove the node
-      newNodes = newNodes.filter(node => node.id !== command.payload.nodeId);
-      // Remove any connected edges
-      newEdges = newEdges.filter(edge => 
-        edge.source !== command.payload.nodeId && 
-        edge.target !== command.payload.nodeId
-      );
-      break;
+      return handleRemoveNode(command.payload, state);
+      
     default:
-      break;
+      return state;
   }
+};
 
-  return { nodes: newNodes, edges: newEdges };
-}
-
-// --- Main Reducer ---
-export const appReducer = (state: AppState, command: IntentionEventType): AppState => {
-  if (command.type === EventTypes.EventSourcing.TIME_TRAVEL) {
-    let newNodes: any[] = [];
-    let newEdges: any[] = [];
-    let startIndex = 0;
-    if (state.snapshotNodes && state.snapshotEdges) {
-      newNodes = state.snapshotNodes;
-      newEdges = state.snapshotEdges;
-    }
-    const { nodes: replayedNodes, edges: replayedEdges } = applyEvents(
-      state.events,
-      command.payload.index,
-      newNodes,
-      newEdges,
-      startIndex
+// --- Event Sourcing Logic ---
+export const applyEvents = (
+  events: IntentionEventType[],
+  targetIndex: number,
+  initialNodes: any[] = [],
+  initialEdges: any[] = [],
+  startIndex: number = 0,
+): CanvasState => {
+  if (targetIndex < startIndex || events.length === 0) {
+    return { nodes: initialNodes, edges: initialEdges };
+  }
+  
+  return events
+    .slice(startIndex, targetIndex + 1)
+    .reduce(
+      (state, event) => reduceCanvas(event, state.nodes, state.edges),
+      { nodes: [...initialNodes], edges: [...initialEdges] }
     );
-    return {
-      ...state,
-      nodes: replayedNodes,
-      edges: replayedEdges,
-      currentEventIndex: command.payload.index,
-    };
-  }
-  if (command.type === EventTypes.EventSourcing.LOAD_EVENTS) {
-    const newEvents = command.payload;
-    const newCurrentEventIndex = newEvents.length > 0 ? newEvents.length - 1 : -1;
-    const { nodes: newNodes, edges: newEdges } = applyEvents(newEvents, newCurrentEventIndex);
-    return {
-      ...state,
-      nodes: newNodes,
-      edges: newEdges,
-      events: newEvents,
-      currentEventIndex: newCurrentEventIndex,
-      snapshotNodes: null,
-      snapshotEdges: null,
-      snapshotIndex: -1,
-    };
-  }
-  if (command.type === EventTypes.EventSourcing.CREATE_SNAPSHOT) {
-    const { snapshotNodes, snapshotEdges, snapshotIndex } = command.payload;
-    const remainingEvents = state.events.slice(snapshotIndex + 1);
-    return {
-      ...state,
-      nodes: snapshotNodes,
-      edges: snapshotEdges,
-      events: remainingEvents,
-      currentEventIndex: -1,
-      snapshotNodes: snapshotNodes,
-      snapshotEdges: snapshotEdges,
-      snapshotIndex: snapshotIndex,
-    };
-  }
+};
+
+// --- Event Sourcing Handlers ---
+const handleTimeTravel = (
+  command: { type: typeof EventTypes.EventSourcing.TIME_TRAVEL; payload: { index: number } },
+  state: AppState
+): AppState => {
+  const startNodes = state.snapshotNodes || [];
+  const startEdges = state.snapshotEdges || [];
+  const startIndex = state.snapshotNodes && state.snapshotEdges ? 0 : 0;
+  
+  const { nodes: replayedNodes, edges: replayedEdges } = applyEvents(
+    state.events,
+    command.payload.index,
+    startNodes,
+    startEdges,
+    startIndex
+  );
+  
+  return {
+    ...state,
+    nodes: replayedNodes,
+    edges: replayedEdges,
+    currentEventIndex: command.payload.index,
+  };
+};
+
+const handleLoadEvents = (
+  command: { type: typeof EventTypes.EventSourcing.LOAD_EVENTS; payload: IntentionEventType[] },
+  state: AppState
+): AppState => {
+  const newEvents = command.payload;
+  const newCurrentEventIndex = newEvents.length > 0 ? newEvents.length - 1 : -1;
+  const { nodes: newNodes, edges: newEdges } = applyEvents(newEvents, newCurrentEventIndex);
+  
+  return {
+    ...state,
+    nodes: newNodes,
+    edges: newEdges,
+    events: newEvents,
+    currentEventIndex: newCurrentEventIndex,
+    snapshotNodes: null,
+    snapshotEdges: null,
+    snapshotIndex: -1,
+  };
+};
+
+const handleCreateSnapshot = (
+  command: { 
+    type: typeof EventTypes.EventSourcing.CREATE_SNAPSHOT; 
+    payload: { snapshotNodes: any[]; snapshotEdges: any[]; snapshotIndex: number } 
+  },
+  state: AppState
+): AppState => {
+  const { snapshotNodes, snapshotEdges, snapshotIndex } = command.payload;
+  const remainingEvents = state.events.slice(snapshotIndex + 1);
+  
+  return {
+    ...state,
+    nodes: snapshotNodes,
+    edges: snapshotEdges,
+    events: remainingEvents,
+    currentEventIndex: -1,
+    snapshotNodes: snapshotNodes,
+    snapshotEdges: snapshotEdges,
+    snapshotIndex: snapshotIndex,
+  };
+};
+
+const handleCanvasEvent = (command: IntentionEventType, state: AppState): AppState => {
   const { nodes: newNodes, edges: newEdges } = reduceCanvas(command, state.nodes, state.edges);
-  const [newEvents, newCurrentEventIndex] = TIME_TRAVELLABLE_EVENTS.includes(command.type as any)
-    ? [state.events.slice(0, state.currentEventIndex + 1).concat(command), state.currentEventIndex + 1]
-    : [state.events, state.currentEventIndex];
+  
+  const isTimeTravellable = TIME_TRAVELLABLE_EVENTS.includes(command.type as any);
+  
+  const newEvents = isTimeTravellable
+    ? [...state.events.slice(0, state.currentEventIndex + 1), command]
+    : state.events;
+    
+  const newCurrentEventIndex = isTimeTravellable
+    ? state.currentEventIndex + 1
+    : state.currentEventIndex;
+  
   return {
     ...state,
     nodes: newNodes,
@@ -291,4 +396,21 @@ export const appReducer = (state: AppState, command: IntentionEventType): AppSta
     events: newEvents,
     currentEventIndex: newCurrentEventIndex,
   };
+};
+
+// --- Main Reducer ---
+export const appReducer: Reducer<AppState, IntentionEventType> = (state, command) => {
+  switch (command.type) {
+    case EventTypes.EventSourcing.TIME_TRAVEL:
+      return handleTimeTravel(command, state);
+      
+    case EventTypes.EventSourcing.LOAD_EVENTS:
+      return handleLoadEvents(command, state);
+      
+    case EventTypes.EventSourcing.CREATE_SNAPSHOT:
+      return handleCreateSnapshot(command, state);
+      
+    default:
+      return handleCanvasEvent(command, state);
+  }
 };
