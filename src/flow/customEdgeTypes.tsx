@@ -47,12 +47,16 @@ export function createCustomEdgeTypes() {
         borderRadius: 10, // Add a slight curve radius
       });
       
+      // Extract the markerEnd from edgeStyle to apply directly to the path
+      const { markerEnd, ...otherStyles } = edgeStyle;
+      
       return (
         <g>
           <path
             className="react-flow__edge-path"
             d={path}
-            style={edgeStyle}
+            style={otherStyles}
+            markerEnd="url(#arrowclosed)"
           />
           {props.data?.condition && (
             <text

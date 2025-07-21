@@ -1,4 +1,4 @@
-import { MarkerType } from '@xyflow/react';
+import type { CSSProperties } from 'react';
 import { ConnectionPattern } from './patternValidation';
 
 /**
@@ -6,17 +6,11 @@ import { ConnectionPattern } from './patternValidation';
  * This provides consistent edge styling across the application
  */
 
-// Define the edge style type with marker end
-export type EdgeStyle = {
-  stroke: string;
-  strokeWidth: number;
-  strokeDasharray?: string;
-  opacity?: number;
-  markerEnd: any; // Using any to avoid TypeScript issues with MarkerEnd
-};
+// Define the edge style type as React CSSProperties to avoid type issues
+export type EdgeStyle = CSSProperties;
 
 // Default arrow marker that can be used across the application
-export const DEFAULT_ARROW_MARKER = { type: MarkerType.ArrowClosed } as any;
+export const DEFAULT_ARROW_MARKER = 'url(#arrowclosed)';
 
 /**
  * Get edge style based on the connection pattern

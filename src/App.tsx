@@ -43,6 +43,7 @@ import UINode from './components/nodes/UINode';
 import ProcessorNode from './components/nodes/ProcessorNode';
 import { createCustomNodeTypes } from './flow/customNodeTypes.tsx';
 import { createCustomEdgeTypes } from './flow/customEdgeTypes.tsx';
+import { EdgeMarkers } from './flow/EdgeMarkers';
 
 // --- Event Sourcing Setup ---
 import type { AppState, IntentionEventType } from './state/eventSourcing';
@@ -899,6 +900,8 @@ const edgeTypes = useMemo(() => createCustomEdgeTypes(), []);
           nodeTypes={customNodeTypes}
           style={{ flexGrow: 1 }}
         >
+          {/* SVG marker definitions for edge arrows */}
+          <EdgeMarkers />
           <MiniMap zoomable pannable nodeClassName={nodeClassName} />
           <Controls />
           <Background />
