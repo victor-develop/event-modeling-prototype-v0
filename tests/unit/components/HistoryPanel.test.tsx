@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import HistoryPanel from '../../../src/components/HistoryPanel';
 
 // Mock data for testing
@@ -35,8 +36,8 @@ const mockEvents = [
 
 // Mock nodes and edges
 const mockNodes = [
-  { id: 'cmd-1', type: 'command', data: { label: 'Test Command' } },
-  { id: 'evt-1', type: 'event', data: { label: 'Test Event' } }
+  { id: 'cmd-1', type: 'command', data: { label: 'Test Command' }, position: { x: 100, y: 100 } },
+  { id: 'evt-1', type: 'event', data: { label: 'Test Event' }, position: { x: 200, y: 100 } }
 ];
 
 const mockEdges = [
@@ -86,7 +87,7 @@ describe('HistoryPanel Component', () => {
     expect(screen.getByText('NEW_CONNECTION')).toBeInTheDocument();
   });
 
-  it('toggles JSON details when Show JSON button is clicked', () => {
+  it('toggles JSON details when detail toggle button is clicked', () => {
     const onTimeTravelMock = vi.fn();
     
     render(
@@ -103,23 +104,23 @@ describe('HistoryPanel Component', () => {
     // Initially, JSON details should not be visible
     expect(screen.queryByText(/"id": "cmd-1"/)).not.toBeInTheDocument();
     
-    // Find and click the first "Show JSON" button
-    const showJsonButtons = screen.getAllByText('Show JSON');
-    fireEvent.click(showJsonButtons[0]);
+    // Find and click the first detail toggle button (which has a '+' symbol)
+    const showDetailsButtons = screen.getAllByTitle('Show details');
+    fireEvent.click(showDetailsButtons[0]);
     
     // Now JSON details should be visible
     expect(screen.getByText(/"id": "cmd-1"/)).toBeInTheDocument();
     expect(screen.getByText(/"label": "Test Command"/)).toBeInTheDocument();
     
     // Click again to hide JSON details
-    const hideJsonButton = screen.getByText('Hide JSON');
-    fireEvent.click(hideJsonButton);
+    const hideDetailsButton = screen.getByTitle('Hide details');
+    fireEvent.click(hideDetailsButton);
     
     // JSON details should be hidden again
     expect(screen.queryByText(/"id": "cmd-1"/)).not.toBeInTheDocument();
   });
 
-  it('prevents time travel when clicking JSON toggle button', () => {
+  it('prevents time travel when clicking detail toggle button', () => {
     const onTimeTravelMock = vi.fn();
     
     render(
@@ -133,9 +134,9 @@ describe('HistoryPanel Component', () => {
       />
     );
     
-    // Find and click the first "Show JSON" button
-    const showJsonButtons = screen.getAllByText('Show JSON');
-    fireEvent.click(showJsonButtons[0]);
+    // Find and click the first detail toggle button (which has a '+' symbol)
+    const showDetailsButtons = screen.getAllByTitle('Show details');
+    fireEvent.click(showDetailsButtons[0]);
     
     // The onTimeTravel should not be called
     expect(onTimeTravelMock).not.toHaveBeenCalled();
