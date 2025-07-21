@@ -7,3 +7,4 @@ import './appReducer.test';
 import './reactFlowChanges.test';
 import './edgeCases.test';
 import './emptyEvents.test';
+import './exportImport.test';
