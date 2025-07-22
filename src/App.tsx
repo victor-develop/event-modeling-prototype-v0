@@ -5,22 +5,13 @@ import {
   MiniMap,
   Controls,
   Background,
-  applyEdgeChanges, applyNodeChanges,
   type NodeChange,
   type EdgeChange,
   type Connection,
   type NodeSelectionChange,
-  MarkerType,
-  // Removed unused import
-  // type Edge as ReactFlowEdge
 } from '@xyflow/react';
-import { isValidConnection, getEdgeStyle, ConnectionPattern, getConnectionPatternType } from './utils/patternValidation';
-// Import our enhanced types
-import type {
-  EventModelingNode,
-  TriggerNodeData, CommandNodeData, EventNodeData, ViewNodeData
-} from './types/nodeTypes';
-import type { EventModelingEdge } from './types/edgeTypes';
+import { isValidConnection, getConnectionPatternType } from './utils/patternValidation';
+// No type imports needed from nodeTypes
 import { EdgePriority } from './types/edgeTypes';
 import { nanoid } from 'nanoid';
 import { createBlock, validateBlockInSwimlane } from './utils/blockCreation';
@@ -28,31 +19,19 @@ import { createBlock, validateBlockInSwimlane } from './utils/blockCreation';
 import '@xyflow/react/dist/style.css';
 
 import Topbar from './components/Topbar';
-import SwimlaneNode from './components/SwimlaneNode';
-import BlockNode from './components/BlockNode';
 import HistoryPanel from './components/HistoryPanel';
 import ValidationPanel from './components/ValidationPanel';
 import WelcomeGuide from './components/WelcomeGuide';
 
-// Import new node types
-import TriggerNode from './components/nodes/TriggerNode';
-import CommandNode from './components/nodes/CommandNode';
-import EventNode from './components/nodes/EventNode';
-import ViewNode from './components/nodes/ViewNode';
-import UINode from './components/nodes/UINode';
-import ProcessorNode from './components/nodes/ProcessorNode';
 import { createCustomNodeTypes } from './flow/customNodeTypes.tsx';
 import { createCustomEdgeTypes } from './flow/customEdgeTypes.tsx';
 import { EdgeMarkers } from './flow/EdgeMarkers';
 
 // --- Event Sourcing Setup ---
-import type { AppState, IntentionEventType } from './state/eventSourcing';
+import type { IntentionEventType } from './state/eventSourcing';
 import {
   EventTypes,
-  TIME_TRAVELLABLE_EVENTS,
   initialState,
-  applyEvents,
-  reduceCanvas,
   appReducer,
 } from './state/eventSourcing';
 

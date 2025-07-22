@@ -1,4 +1,4 @@
-import React from 'react';
+// React is used implicitly by JSX
 import SwimlaneNode from '../components/SwimlaneNode';
 import BlockNode from '../components/BlockNode';
 import TriggerNode from '../components/nodes/TriggerNode';

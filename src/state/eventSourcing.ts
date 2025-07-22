@@ -95,9 +95,9 @@ export const initialState: AppState = {
 type Reducer<S, A> = (state: S, action: A) => S;
 type CanvasState = { nodes: any[], edges: any[] };
 
-// Function composition utility
-const pipe = <T>(...fns: Array<(arg: T) => T>) => 
-  (value: T): T => fns.reduce((acc, fn) => fn(acc), value);
+// Function composition utility (commented out as currently unused)
+// const pipe = <T>(...fns: Array<(arg: T) => T>) => 
+//   (value: T): T => fns.reduce((acc, fn) => fn(acc), value);
 
 // --- Event Handlers ---
 

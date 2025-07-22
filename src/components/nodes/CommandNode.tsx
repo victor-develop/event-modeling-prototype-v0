@@ -20,7 +20,7 @@ const CommandNode: React.FC<CommandNodeProps> = ({
   data,
   selected,
   onLabelChange,
-  onParametersChange,
+  // onParametersChange is currently unused but kept for future implementation
   onRemove,
 }) => {
   const {

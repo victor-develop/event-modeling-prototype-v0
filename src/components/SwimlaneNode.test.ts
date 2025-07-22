@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { nanoid } from 'nanoid';
-import { EventTypes, appReducer, initialState } from '../App';
+import { EventTypes, appReducer, initialState } from '../state/eventSourcing';
 import { SwimlaneKind, ALLOWED_BLOCK_TYPES } from '../types/swimlaneTypes';
 import { BlockKind } from '../types/blockTypes';
 

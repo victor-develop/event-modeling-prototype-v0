@@ -20,7 +20,7 @@ const EventNode: React.FC<EventNodeProps> = ({
   data,
   selected,
   onLabelChange,
-  onPayloadChange,
+  // onPayloadChange is currently unused but kept for future implementation
   onRemove,
 }) => {
   const {

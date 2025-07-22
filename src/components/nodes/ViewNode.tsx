@@ -20,7 +20,7 @@ const ViewNode: React.FC<ViewNodeProps> = ({
   data,
   selected,
   onLabelChange,
-  onSourcesChange,
+  // onSourcesChange is currently unused but kept for future implementation
   onRemove,
 }) => {
   const {
