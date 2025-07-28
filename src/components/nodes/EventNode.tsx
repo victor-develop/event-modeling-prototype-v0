@@ -2,6 +2,7 @@ import React, { memo, useCallback } from 'react';
 import CloseButton from '../common/CloseButton';
 import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
+import { useSchemaModal } from '../SchemaEditorModalManager';
 
 interface EventNodeProps {
   id: string;
@@ -23,6 +24,7 @@ const EventNode: React.FC<EventNodeProps> = ({
   // onPayloadChange is currently unused but kept for future implementation
   onRemove,
 }) => {
+  const { openSchemaEditor } = useSchemaModal();
   const {
     label,
     isEditing,
@@ -46,7 +48,8 @@ const EventNode: React.FC<EventNodeProps> = ({
   }, [id, onRemove]);
 
   return (
-    <div
+    <>
+      <div
       style={{
         padding: '10px',
         borderRadius: '5px',
@@ -137,9 +140,37 @@ const EventNode: React.FC<EventNodeProps> = ({
       )}
       
       {/* Handle on both left and right */}
+      {/* Schema button */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        marginTop: '10px',
+        borderTop: '1px solid rgba(0,0,0,0.1)',
+        paddingTop: '5px'
+      }}>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            openSchemaEditor(id, data.label, 'event');
+          }}
+          style={{
+            backgroundColor: '#9b59b6',
+            color: 'white',
+            border: 'none',
+            padding: '3px 8px',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          Edit Schema
+        </button>
+      </div>
+
       <Handle type="target" position={Position.Left} style={{ background: 'white' }} />
       <Handle type="source" position={Position.Right} style={{ background: 'white' }} />
     </div>
+    </>
   );
 };
 

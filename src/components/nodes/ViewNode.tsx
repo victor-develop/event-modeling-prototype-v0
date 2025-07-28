@@ -2,6 +2,7 @@ import React, { memo, useCallback } from 'react';
 import CloseButton from '../common/CloseButton';
 import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
+import { useSchemaModal } from '../SchemaEditorModalManager';
 
 interface ViewNodeProps {
   id: string;
@@ -23,6 +24,7 @@ const ViewNode: React.FC<ViewNodeProps> = ({
   // onSourcesChange is currently unused but kept for future implementation
   onRemove,
 }) => {
+  const { openSchemaEditor } = useSchemaModal();
   const {
     label,
     isEditing,
@@ -47,7 +49,8 @@ const ViewNode: React.FC<ViewNodeProps> = ({
   }, [id, onRemove]);
 
   return (
-    <div
+    <>
+      <div
       style={{
         width: '100%',
         height: '100%',
@@ -137,11 +140,39 @@ const ViewNode: React.FC<ViewNodeProps> = ({
         </div>
       )}
       
+      {/* Schema button */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        marginTop: '10px',
+        borderTop: '1px solid rgba(0,0,0,0.1)',
+        paddingTop: '5px'
+      }}>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            openSchemaEditor(id, data.label, 'view');
+          }}
+          style={{
+            backgroundColor: '#9b59b6',
+            color: 'white',
+            border: 'none',
+            padding: '3px 8px',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          Edit Schema
+        </button>
+      </div>
+
       {/* Target handle on left - Views can be targets */}
       <Handle type="target" position={Position.Left} style={{ background: 'white' }} />
       {/* Source handle on right - Views can now be sources for UI and Processor */}
       <Handle type="source" position={Position.Right} style={{ background: 'white' }} />
     </div>
+    </>
   );
 };
 

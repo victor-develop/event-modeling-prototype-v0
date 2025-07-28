@@ -1,5 +1,7 @@
 import React, { useCallback, useReducer, useState, useMemo } from 'react';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { SchemaProvider, useSchemaState } from './state/schemaState';
+import { SchemaModalProvider } from './components/SchemaEditorModalManager';
 import {
   ReactFlow,
   MiniMap,
@@ -639,11 +641,14 @@ const dispatchRemoveNode = useCallback(
   
   // Export events to JSON
   const onExportEvents = useCallback(() => {
+    const { schemas } = useSchemaState();
+    
     const modelState = {
       nodes,
       edges,
       events,
-      currentEventIndex
+      currentEventIndex,
+      schemas
     };
     
     const dataStr = JSON.stringify(modelState, null, 2);
@@ -690,6 +695,20 @@ const dispatchRemoveNode = useCallback(
               type: EventTypes.EventSourcing.LOAD_EVENTS,
               payload: parsedContent.events
             });
+            
+            // Import schemas if they exist
+            if (parsedContent.schemas) {
+              const { setSchema } = useSchemaState();
+              Object.entries(parsedContent.schemas).forEach(([blockId, schemaData]: [string, any]) => {
+                // Ensure schema data has the correct type
+                const typedSchemaData = {
+                  code: typeof schemaData?.code === 'string' ? schemaData.code : '',
+                  libraries: typeof schemaData?.libraries === 'string' ? schemaData.libraries : ''
+                };
+                setSchema(blockId, typedSchemaData);
+              });
+            }
+            
             showToast({
               message: 'Model imported successfully!',
               type: 'success',
@@ -959,7 +978,11 @@ const edgeTypes = useMemo(() => createCustomEdgeTypes(), []);
 const App = () => {
   return (
     <ToastProvider>
-      <AppContent />
+      <SchemaProvider>
+        <SchemaModalProvider>
+          <AppContent />
+        </SchemaModalProvider>
+      </SchemaProvider>
     </ToastProvider>
   );
 };

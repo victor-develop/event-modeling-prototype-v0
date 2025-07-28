@@ -2,6 +2,7 @@ import React, { memo, useCallback } from 'react';
 import CloseButton from '../common/CloseButton';
 import { useNodeLabelEdit } from '../../hooks/useNodeLabelEdit';
 import { Handle, Position } from '@xyflow/react';
+import { useSchemaModal } from '../SchemaEditorModalManager';
 
 interface CommandNodeProps {
   id: string;
@@ -23,6 +24,7 @@ const CommandNode: React.FC<CommandNodeProps> = ({
   // onParametersChange is currently unused but kept for future implementation
   onRemove,
 }) => {
+  const { openSchemaEditor } = useSchemaModal();
   const {
     label,
     isEditing,
@@ -46,21 +48,22 @@ const CommandNode: React.FC<CommandNodeProps> = ({
   }, [id, onRemove]);
 
   return (
-    <div
-      style={{
-        padding: '10px',
-        borderRadius: '5px',
-        backgroundColor: '#3498db',
-        color: 'white',
-        border: `1px solid ${selected ? '#1a192b' : '#ddd'}`,
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: selected ? '0 0 0 2px #1a192b' : 'none',
-        position: 'relative',
-      }}
-    >
+    <>
+      <div
+        style={{
+          padding: '10px',
+          borderRadius: '5px',
+          backgroundColor: '#3498db',
+          color: 'white',
+          border: `1px solid ${selected ? '#1a192b' : '#ddd'}`,
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: selected ? '0 0 0 2px #1a192b' : 'none',
+          position: 'relative',
+        }}
+      >
       {/* Close button */}
       <CloseButton onClick={handleRemoveClick} />
       <div 
@@ -136,10 +139,38 @@ const CommandNode: React.FC<CommandNodeProps> = ({
         </div>
       )}
       
+      {/* Schema button */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        marginTop: '10px',
+        borderTop: '1px solid rgba(255,255,255,0.2)',
+        paddingTop: '5px'
+      }}>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            openSchemaEditor(id, data.label, 'command');
+          }}
+          style={{
+            backgroundColor: '#9b59b6',
+            color: 'white',
+            border: 'none',
+            padding: '3px 8px',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          Edit Schema
+        </button>
+      </div>
+
       {/* Handle on both left and right */}
       <Handle type="target" position={Position.Left} style={{ background: 'white' }} />
       <Handle type="source" position={Position.Right} style={{ background: 'white' }} />
     </div>
+    </>
   );
 };
 
