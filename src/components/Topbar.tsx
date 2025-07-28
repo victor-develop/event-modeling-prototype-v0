@@ -59,10 +59,10 @@ const Topbar: React.FC<TopbarProps> = ({
           <span style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Layout</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <button 
-              onClick={handleAddEventSwimlane} 
-              style={{ marginRight: '5px', backgroundColor: '#f1c40f', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}
+              onClick={handleAddTriggerSwimlane} 
+              style={{ marginRight: '5px', backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}
             >
-              Event Lane
+              Trigger Lane
             </button>
             <button 
               onClick={handleAddCommandViewSwimlane} 
@@ -71,10 +71,10 @@ const Topbar: React.FC<TopbarProps> = ({
               Command & View Lane
             </button>
             <button 
-              onClick={handleAddTriggerSwimlane} 
-              style={{ marginRight: '5px', backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}
+              onClick={handleAddEventSwimlane} 
+              style={{ marginRight: '5px', backgroundColor: '#f1c40f', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px' }}
             >
-              Trigger Lane
+              Event Lane
             </button>
           </div>
         </div>
