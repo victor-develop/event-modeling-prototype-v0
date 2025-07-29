@@ -337,7 +337,6 @@ return (
   </SchemaContext.Provider>
 );
 
-// Hook to use schema state within components
 export const useSchemaState = () => {
   const context = useContext(SchemaContext);
   if (!context) {

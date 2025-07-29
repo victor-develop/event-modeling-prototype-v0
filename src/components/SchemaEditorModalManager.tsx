@@ -1,12 +1,19 @@
 import React, { createContext, useContext, useState } from 'react';
 import { SchemaEditorModal } from './SchemaEditorModal';
 
-interface SchemaModalContextType {
+interface SchemaModalContextValue {
   openSchemaEditor: (blockId: string, blockTitle: string, blockType: 'command' | 'event' | 'view') => void;
   closeSchemaEditor: () => void;
 }
 
-const SchemaModalContext = createContext<SchemaModalContextType | undefined>(undefined);
+interface SchemaModalState {
+  isOpen: boolean;
+  blockId: string;
+  blockTitle: string;
+  blockType: 'command' | 'event' | 'view';
+}
+
+const SchemaModalContext = createContext<SchemaModalContextValue | undefined>(undefined);
 
 export const useSchemaModal = () => {
   const context = useContext(SchemaModalContext);
@@ -17,18 +24,14 @@ export const useSchemaModal = () => {
 };
 
 export const SchemaModalProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
-  const [modalState, setModalState] = useState<{
-    isOpen: boolean;
-    blockId: string;
-    blockTitle: string;
-    blockType: 'command' | 'event' | 'view';
-  }>({
+  const [modalState, setModalState] = useState<SchemaModalState>({
     isOpen: false,
     blockId: '',
     blockTitle: '',
     blockType: 'command',
   });
 
+  // Open the schema editor with focus on a specific block
   const openSchemaEditor = (blockId: string, blockTitle: string, blockType: 'command' | 'event' | 'view') => {
     setModalState({
       isOpen: true,
@@ -39,13 +42,15 @@ export const SchemaModalProvider: React.FC<React.PropsWithChildren<{}>> = ({ chi
   };
 
   const closeSchemaEditor = () => {
-    setModalState(prev => ({ ...prev, isOpen: false }));
+    setModalState(prev => ({
+      ...prev,
+      isOpen: false,
+    }));
   };
 
   return (
     <SchemaModalContext.Provider value={{ openSchemaEditor, closeSchemaEditor }}>
       {children}
-      {/* Render the modal at the root level */}
       <SchemaEditorModal
         blockId={modalState.blockId}
         blockTitle={modalState.blockTitle}

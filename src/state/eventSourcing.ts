@@ -201,8 +201,48 @@ const updateNodeProperty = <T>(
   };
 };
 
-const handleUpdateNodeLabel = (payload: { nodeId: string; label: string }, state: CanvasState): CanvasState => 
-  updateNodeProperty(payload.nodeId, ['data', 'label'], payload.label, state);
+const handleUpdateNodeLabel = (payload: { nodeId: string; label: string }, state: CanvasState): CanvasState => {
+  console.log('[DEBUG] handleUpdateNodeLabel called with:', payload);
+  
+  // First update the node property in the state
+  const updatedState = updateNodeProperty(payload.nodeId, ['data', 'label'], payload.label, state);
+  
+  // Find the node that was updated
+  const updatedNode = updatedState.nodes.find(node => node.id === payload.nodeId);
+  if (!updatedNode) return updatedState;
+  
+  // Only trigger schema update for command, event, or view nodes
+  const nodeType = updatedNode.type;
+  if (nodeType === 'command' || nodeType === 'event' || nodeType === 'view') {
+    try {
+      // Use setTimeout to ensure this runs after the state update is complete
+      setTimeout(() => {
+        try {
+          // Import at runtime to avoid circular dependencies
+          const schemaStateModule = require('./schemaState');
+          console.log('[DEBUG] Schema state module loaded:', Object.keys(schemaStateModule));
+          
+          const schemaState = schemaStateModule.getSchemaState();
+          console.log('[DEBUG] Got schema state:', schemaState ? 'yes' : 'no');
+          
+          if (schemaState && typeof schemaState.updateBlockTitle === 'function') {
+            console.log('[DEBUG] Triggering schema update for node:', updatedNode.id, payload.label);
+            schemaState.updateBlockTitle(updatedNode.id, payload.label);
+          } else {
+            console.error('[DEBUG] Schema state or updateBlockTitle not available:', 
+              schemaState ? `Has updateBlockTitle: ${typeof schemaState.updateBlockTitle}` : 'No schema state');
+          }
+        } catch (innerError) {
+          console.error('[DEBUG] Error in schema update timeout:', innerError);
+        }
+      }, 0);
+    } catch (error) {
+      console.error('[DEBUG] Error setting up schema update:', error);
+    }
+  }
+  
+  return updatedState;
+};
 
 const handleUpdateCommandParameters = (payload: { nodeId: string; parameters: Record<string, string> }, state: CanvasState): CanvasState => 
   updateNodeProperty(payload.nodeId, ['data', 'parameters'], payload.parameters, state);

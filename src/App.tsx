@@ -1,6 +1,6 @@
 import React, { useCallback, useReducer, useState, useMemo } from 'react';
 import { ToastProvider, useToast } from './context/ToastContext';
-import { SchemaProvider, useSchemaState } from './state/schemaState';
+import { SchemaProvider } from './state/schemaState';
 import { SchemaModalProvider } from './components/SchemaEditorModalManager';
 import {
   ReactFlow,
@@ -579,6 +579,8 @@ const AppContent = () => {
   // --- Memoized dispatchUpdate* functions for stable references ---
 const dispatchUpdateNodeLabel = useCallback(
   (nodeId: string, label: string) => {
+    // Dispatch the node label update event
+    // The schema update will be handled in the handleUpdateNodeLabel function in eventSourcing.ts
     dispatch({
       type: EventTypes.ModelingEditor.UPDATE_NODE_LABEL,
       payload: { nodeId, label }
@@ -641,14 +643,15 @@ const dispatchRemoveNode = useCallback(
   
   // Export events to JSON
   const onExportEvents = useCallback(() => {
-    const { schemas } = useSchemaState();
+    const { schemaData, blockRegistry } = useSchemaState();
     
     const modelState = {
       nodes,
       edges,
       events,
       currentEventIndex,
-      schemas
+      schemaData,
+      blockRegistry
     };
     
     const dataStr = JSON.stringify(modelState, null, 2);
@@ -696,17 +699,49 @@ const dispatchRemoveNode = useCallback(
               payload: parsedContent.events
             });
             
-            // Import schemas if they exist
-            if (parsedContent.schemas) {
-              const { setSchema } = useSchemaState();
-              Object.entries(parsedContent.schemas).forEach(([blockId, schemaData]: [string, any]) => {
-                // Ensure schema data has the correct type
-                const typedSchemaData = {
-                  code: typeof schemaData?.code === 'string' ? schemaData.code : '',
-                  libraries: typeof schemaData?.libraries === 'string' ? schemaData.libraries : ''
-                };
-                setSchema(blockId, typedSchemaData);
+            // Import unified schema if it exists
+            const { updateSchema, registerBlock } = useSchemaState();
+            
+            // Import schema data if it exists
+            if (parsedContent.schemaData) {
+              const typedSchemaData = {
+                code: typeof parsedContent.schemaData?.code === 'string' ? parsedContent.schemaData.code : '',
+                libraries: typeof parsedContent.schemaData?.libraries === 'string' ? parsedContent.schemaData.libraries : ''
+              };
+              updateSchema(typedSchemaData, 'import');
+            }
+            
+            // Import block registry if it exists
+            if (parsedContent.blockRegistry && Array.isArray(parsedContent.blockRegistry)) {
+              parsedContent.blockRegistry.forEach((block: any) => {
+                if (block.id && block.title && block.type) {
+                  registerBlock({
+                    id: block.id,
+                    title: block.title,
+                    type: block.type
+                  });
+                }
               });
+            }
+            
+            // Handle legacy schema format (per-block schemas)
+            if (parsedContent.schemas && !parsedContent.schemaData) {
+              // Convert old format to new format
+              let combinedCode = '';
+              
+              // Extract all schemas and combine them
+              Object.entries(parsedContent.schemas).forEach(([_, schemaData]: [string, any]) => {
+                if (typeof schemaData?.code === 'string' && schemaData.code.trim()) {
+                  combinedCode += `\n\n${schemaData.code}`;
+                }
+              });
+              
+              if (combinedCode) {
+                updateSchema({
+                  code: combinedCode.trim(),
+                  libraries: ''
+                }, 'import');
+              }
             }
             
             showToast({

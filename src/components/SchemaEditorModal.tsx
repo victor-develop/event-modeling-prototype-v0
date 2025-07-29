@@ -1,8 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { GraphQLEditor } from 'graphql-editor';
 import type { ExternalEditorAPI } from 'graphql-editor';
 import { useSchemaState } from '../state/schemaState';
-import { toCamelCase } from '../utils/stringUtils';
+import { findTypeNames, parseSchema } from '../utils/schemaPreservation';
+import { toCamelCase, fromCamelCase, findMostSimilarString } from '../utils/stringUtils';
+// No type imports needed
 
 interface SchemaEditorModalProps {
   blockId: string;
@@ -19,14 +21,116 @@ export const SchemaEditorModal: React.FC<SchemaEditorModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { getSchema, setSchema } = useSchemaState();
+  const { schemaData, updateSchema, registerBlock, blockRegistry, updateBlockTitle } = useSchemaState();
   const editorRef = useRef<ExternalEditorAPI>(null);
-  const schema = getSchema(blockId);
   
-  const typeName = toCamelCase(blockTitle);
+  // Log when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[DEBUG-MODAL] Schema editor opened with:', {
+        blockId,
+        blockTitle,
+        blockType,
+        currentSchema: schemaData.code
+      });
+      
+      // Check if the type exists in the schema
+      try {
+        const ast = parseSchema(schemaData.code);
+        if (ast) {
+          const typeNames = findTypeNames(ast);
+          const typeName = toCamelCase(blockTitle);
+          console.log('[DEBUG-MODAL] Current type names in schema:', typeNames);
+          console.log('[DEBUG-MODAL] Looking for type:', typeName);
+          console.log('[DEBUG-MODAL] Type exists in schema:', typeNames.includes(typeName));
+        }
+      } catch (error) {
+        console.error('[DEBUG-MODAL] Error parsing schema:', error);
+      }
+    }
+  }, [isOpen, blockId, blockTitle, blockType, schemaData.code]);
   
-  // Generate default schema if empty
-  const initialSchema = schema.code || generateDefaultSchema(typeName, blockType);
+  // Register this block when the component mounts or block details change
+  useEffect(() => {
+    if (blockId && blockTitle) {
+      registerBlock({
+        id: blockId,
+        title: blockTitle,
+        type: blockType
+      });
+    }
+  }, [blockId, blockTitle, blockType, registerBlock]);
+  
+  // Detect schema changes to update block titles
+  const detectSchemaChanges = useCallback((newSchema: string) => {
+    if (!schemaData.code || schemaData.code === newSchema) return;
+    
+    const prevSchema = schemaData.code;
+    
+    // Parse previous and current schema
+    const prevAst = parseSchema(prevSchema);
+    const newAst = parseSchema(newSchema);
+    
+    if (!prevAst || !newAst) return;
+    
+    const prevTypeNames = findTypeNames(prevAst);
+    const newTypeNames = findTypeNames(newAst);
+    
+    console.log('Detecting schema changes:', { prevTypeNames, newTypeNames });
+    
+    // Find blocks that might need title updates
+    blockRegistry.forEach(block => {
+      const blockTypeName = toCamelCase(block.title);
+      
+      // Skip if the type still exists with the same name
+      if (newTypeNames.includes(blockTypeName)) return;
+      
+      // Check if the type was removed completely (not just renamed)
+      if (!prevTypeNames.includes(blockTypeName)) return;
+      
+      // For command blocks, also check input and result types
+      let commandTypesExist = false;
+      if (block.type === 'command') {
+        const inputType = `${blockTypeName}Input`;
+        const resultType = `${blockTypeName}Result`;
+        commandTypesExist = newTypeNames.includes(inputType) || newTypeNames.includes(resultType);
+        if (commandTypesExist) return;
+      }
+      
+      console.log('Looking for similar type to:', blockTypeName);
+      
+      // Find the most similar type name in the new schema
+      const similarType = findMostSimilarString(blockTypeName, newTypeNames, 0.7);
+      if (similarType) {
+        console.log('Found similar type:', similarType);
+        // Update block title based on the renamed type
+        const newTitle = fromCamelCase(similarType.string);
+        if (newTitle !== block.title) {
+          console.log('Updating block title from', block.title, 'to', newTitle);
+          // Use updateBlockTitle to ensure bidirectional sync
+          updateBlockTitle(block.id, newTitle);
+        }
+      }
+    });
+  }, [blockRegistry, updateBlockTitle, schemaData.code]);
+  
+  // Focus on the current block type when the editor opens
+  useEffect(() => {
+    if (isOpen && editorRef.current) {
+      // Use setTimeout to ensure the editor is fully loaded
+      const timer = setTimeout(() => {
+        try {
+          // Try to navigate to the block's type in the editor
+          // We'll implement focusing on specific types in the future if needed
+          console.log(`Opening schema editor focused on: ${blockTitle}`);
+        } catch (err) {
+          console.error('Failed to navigate to type:', err);
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, blockTitle]);
   
   if (!isOpen) return null;
   
@@ -73,70 +177,48 @@ export const SchemaEditorModal: React.FC<SchemaEditorModalProps> = ({
         }}>
           <h3 style={{ margin: 0, fontSize: '18px' }}>
             <span style={{ color: '#9b59b6', marginRight: '10px' }}>✏️</span>
-            Edit Schema: {blockTitle}
+            GraphQL Schema Editor
+            {blockTitle && <span style={{ fontSize: '16px', color: '#666', marginLeft: '10px' }}>• Focused on: {blockTitle}</span>}
           </h3>
-          <button 
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              padding: '5px 15px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Close
-          </button>
+          <div>
+            <button 
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                padding: '5px 15px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Close
+            </button>
+          </div>
         </div>
         <div style={{ flex: 1 }}>
           <GraphQLEditor
             ref={editorRef}
             schema={{
-              code: initialSchema,
-              libraries: schema.libraries || '',
+              code: schemaData.code,
+              libraries: schemaData.libraries || '',
               source: 'outside',
             }}
             setSchema={(newSchema) => {
-              setSchema(blockId, {
+              // Process schema changes to detect type name updates
+              detectSchemaChanges(newSchema.code);
+              
+              // Update schema with source tracking to prevent infinite loops
+              updateSchema({
                 code: newSchema.code,
                 libraries: newSchema.libraries || '',
-              });
+              }, 'schema-editor');
             }}
-            path={`${typeName}.graphql`}
-            title={`${blockType}: ${blockTitle}`}
+            path="schema.graphql"
+            title="Event Modeling Schema"
           />
         </div>
       </div>
     </div>
   );
 };
-
-// Helper function to generate default schema based on block type
-function generateDefaultSchema(typeName: string, blockType: 'command' | 'event' | 'view'): string {
-  switch (blockType) {
-    case 'command':
-      return `input ${typeName}Input {
-  # Define command parameters here
-  id: ID!
-}
-
-type ${typeName}Result {
-  # Define command result here
-  success: Boolean!
-}`;
-    case 'event':
-      return `type ${typeName} {
-  # Define event payload here
-  id: ID!
-  timestamp: String!
-}`;
-    case 'view':
-      return `type ${typeName} {
-  # Define view structure here
-  id: ID!
-}`;
-    default:
-      return '';
-  }
-}
